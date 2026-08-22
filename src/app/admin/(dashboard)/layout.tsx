@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ReactNode, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import logoNavbar from "../../../assets/logo/logo-navbar.svg";
 
 // Placeholder icons (SVG)
@@ -22,9 +22,23 @@ const MessageIcon = () => (
 
 export default function AdminDashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const isCurrent = (path: string) => pathname === path;
+
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:5000/api/auth/logout", {
+        method: "POST",
+        credentials: "include"
+      });
+      router.push("/admin/login");
+    } catch (error) {
+      console.error("Logout error", error);
+      router.push("/admin/login");
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-[var(--color-admin-bg)] text-[var(--color-admin-text)]">
@@ -127,10 +141,10 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
           </Link>
         </nav>
         <div className="p-4 border-t border-mint/10">
-          <Link href="/admin/login" className="flex items-center gap-x-3 rounded-md px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors">
+          <button onClick={handleLogout} className="w-full flex items-center gap-x-3 rounded-md px-3 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
             Keluar
-          </Link>
+          </button>
         </div>
       </aside>
 
