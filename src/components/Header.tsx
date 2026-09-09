@@ -41,7 +41,7 @@ export default function Header() {
 
         <nav className="hidden items-center gap-7 lg:flex" aria-label="Navigasi utama">
           {navigation.map((item) => {
-            const isMatch = !item.href.includes('#') && (item.href === '/' ? pathname === '/' : pathname.startsWith(item.href))
+            const isMatch = !item.href.includes('#') && !!pathname && (item.href === '/' ? pathname === '/' : pathname.startsWith(item.href))
             
             if (item.subItems) {
               return (
@@ -91,7 +91,7 @@ export default function Header() {
         <nav className="border-t border-white/10 bg-gradient-to-b from-[#003119] to-primary px-5 pb-6 pt-3 lg:hidden" aria-label="Navigasi mobile">
           <div className="mx-auto flex max-w-7xl flex-col">
             {navigation.map((item) => {
-              const isMatch = !item.href.includes('#') && (item.href === '/' ? pathname === '/' : pathname.startsWith(item.href))
+              const isMatch = !item.href.includes('#') && !!pathname && (item.href === '/' ? pathname === '/' : pathname.startsWith(item.href))
               
               if (item.subItems) {
                 const isOpen = openDropdown === item.label
