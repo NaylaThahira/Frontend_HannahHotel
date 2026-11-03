@@ -1,5 +1,6 @@
 "use client";
 
+import { adminFetch } from '@/lib/admin-api';
 import { useState, useEffect } from "react";
 import { Plus, Trash2, X, Save, Edit3, GripVertical, Check } from "lucide-react";
 import * as LucideIcons from 'lucide-react';
@@ -27,7 +28,7 @@ export default function AboutUsManagementPage() {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/settings");
+      const res = await adminFetch("http://localhost:5000/api/settings");
       const data = await res.json();
       
       if (data.history_subtitle) setHistorySubtitle(data.history_subtitle);
@@ -62,7 +63,7 @@ export default function AboutUsManagementPage() {
         history_content: historyContent
       };
       
-      const res = await fetch("http://localhost:5000/api/settings", {
+      const res = await adminFetch("http://localhost:5000/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -86,7 +87,7 @@ export default function AboutUsManagementPage() {
         missions_json: JSON.stringify(missions)
       };
       
-      const res = await fetch("http://localhost:5000/api/settings", {
+      const res = await adminFetch("http://localhost:5000/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)

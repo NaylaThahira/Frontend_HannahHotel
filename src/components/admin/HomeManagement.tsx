@@ -1,16 +1,19 @@
 "use client";
 
+import { adminFetch } from '@/lib/admin-api';
 import { useState, useEffect, useRef } from "react";
-import { Check, X, Upload, Plus, Trash2, GripVertical, Image as ImageIcon, AlignLeft, MapPin } from "lucide-react";
+import { Check, X, Upload, GripVertical, Image as ImageIcon, AlignLeft, MapPin } from "lucide-react";
 import Image from "next/image";
+import AttractionsManagement from './AttractionsManagement';
+import HomeActionsSettings from './HomeActionsSettings';
 
 type Tab = 'hero' | 'order' | 'attractions';
 
 const DEFAULT_SECTIONS = [
   { id: 'hero', label: 'Hero Section' },
   { id: 'trustbar', label: 'Trust Bar (Keunggulan)' },
-  { id: 'rooms', label: 'Kamar Pilihan' },
-  { id: 'attractions', label: 'Destinasi Wisata' },
+  { id: 'rooms', label: 'Informasi Cabang Hotel' },
+  { id: 'attractions', label: 'Area Akomodasi' },
   { id: 'gallery', label: 'Galeri Foto' }
 ];
 
@@ -29,14 +32,10 @@ export default function HomeManagementPage() {
   // Order State
   const [sectionsOrder, setSectionsOrder] = useState<string[]>([]);
 
-  // Attractions State
-  const [attractions, setAttractions] = useState<string[]>([]);
-  const [newAttraction, setNewAttraction] = useState("");
-
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/settings");
+      const res = await adminFetch("http://localhost:5000/api/settings");
       const data = await res.json();
       
       setHeroTitle(data.home_hero_title || "");
@@ -51,16 +50,6 @@ export default function HomeManagementPage() {
         setSectionsOrder(DEFAULT_SECTIONS.map(s => s.id));
       }
 
-      if (data.tourist_attractions_json) {
-        try {
-          setAttractions(JSON.parse(data.tourist_attractions_json));
-        } catch(e) {}
-      } else {
-        setAttractions([
-          'Pantai Carocok', 'Bukik Langkisau', 'Pulau Cingkuak', 
-          'Kawasan Mandeh', 'Air terjun Bayang S', 'Jembatan Akar'
-        ]);
-      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -80,7 +69,7 @@ export default function HomeManagementPage() {
   const handleSaveHeroText = async () => {
     setIsSaving(true);
     try {
-      const res = await fetch("http://localhost:5000/api/settings", {
+      const res = await adminFetch("http://localhost:5000/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -106,7 +95,7 @@ export default function HomeManagementPage() {
       const formData = new FormData();
       formData.append("image", selectedHeroFile);
 
-      const res = await fetch("http://localhost:5000/api/settings/upload-hero", {
+      const res = await adminFetch("http://localhost:5000/api/settings/upload-hero", {
         method: "POST",
         body: formData,
       });
@@ -126,7 +115,7 @@ export default function HomeManagementPage() {
   const handleSaveOrder = async () => {
     setIsSaving(true);
     try {
-      const res = await fetch("http://localhost:5000/api/settings", {
+      const res = await adminFetch("http://localhost:5000/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -160,38 +149,6 @@ export default function HomeManagementPage() {
     setSectionsOrder(newOrder);
   };
 
-  const handleSaveAttractions = async () => {
-    setIsSaving(true);
-    try {
-      const res = await fetch("http://localhost:5000/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tourist_attractions_json: JSON.stringify(attractions)
-        })
-      });
-      if (!res.ok) throw new Error();
-      showAlert('success', 'Daftar wisata berhasil disimpan!');
-    } catch (err) {
-      showAlert('error', 'Gagal menyimpan daftar wisata');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const addAttraction = () => {
-    if (newAttraction.trim() && !attractions.includes(newAttraction.trim())) {
-      setAttractions([...attractions, newAttraction.trim()]);
-      setNewAttraction("");
-    }
-  };
-
-  const removeAttraction = (index: number) => {
-    const newAttrs = [...attractions];
-    newAttrs.splice(index, 1);
-    setAttractions(newAttrs);
-  };
-
   if (isLoading) {
     return <div className="flex h-64 items-center justify-center">Memuat data...</div>;
   }
@@ -217,6 +174,7 @@ export default function HomeManagementPage() {
       </div>
 
       {/* Tabs */}
+      <HomeActionsSettings />
       <div className="flex border-b border-gray-200">
         <button
           onClick={() => setActiveTab('hero')}
@@ -245,7 +203,7 @@ export default function HomeManagementPage() {
           }`}
         >
           <MapPin size={18} />
-          Destinasi Wisata
+          Area Akomodasi
           {activeTab === 'attractions' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full" />}
         </button>
       </div>
@@ -410,76 +368,7 @@ export default function HomeManagementPage() {
           </div>
         )}
 
-        {/* TAB: ATTRACTIONS */}
-        {activeTab === 'attractions' && (
-          <div className="space-y-6 rounded-xl border border-gray-200 bg-white p-6 md:p-8 shadow-sm">
-            <div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Destinasi Wisata Terdekat</h3>
-              <p className="text-sm text-gray-500">
-                Kelola daftar tempat wisata yang ditampilkan di halaman beranda.
-              </p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input 
-                type="text" 
-                value={newAttraction}
-                onChange={(e) => setNewAttraction(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addAttraction();
-                  }
-                }}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary w-full"
-                placeholder="Tambah destinasi wisata (contoh: Pantai Carocok)"
-              />
-              <button
-                type="button"
-                onClick={addAttraction}
-                className="inline-flex justify-center items-center gap-2 rounded-lg border border-primary bg-white px-5 py-2.5 text-sm font-medium text-primary hover:bg-primary hover:text-white transition-colors w-full sm:w-auto shrink-0"
-              >
-                <Plus size={18} />
-                Tambah
-              </button>
-            </div>
-
-            <div className="mt-6 border border-gray-200 rounded-lg overflow-hidden">
-              {attractions.length === 0 ? (
-                <div className="p-8 text-center text-gray-500 text-sm">Belum ada daftar wisata.</div>
-              ) : (
-                <ul className="divide-y divide-gray-200 bg-white">
-                  {attractions.map((attr, idx) => (
-                    <li key={idx} className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <MapPin size={18} className="text-orange" />
-                        <span className="font-medium text-gray-800">{attr}</span>
-                      </div>
-                      <button 
-                        type="button" 
-                        onClick={() => removeAttraction(idx)} 
-                        className="text-gray-400 hover:text-red-600 transition-colors p-1.5 rounded-md hover:bg-red-50"
-                        title="Hapus"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-4 border-t border-gray-100 mt-6">
-              <button 
-                onClick={handleSaveAttractions}
-                disabled={isSaving}
-                className="rounded-lg bg-primary px-6 py-2.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50"
-              >
-                {isSaving ? 'Menyimpan...' : 'Simpan Daftar Wisata'}
-              </button>
-            </div>
-          </div>
-        )}
+        {activeTab === 'attractions' && <AttractionsManagement />}
       </div>
     </div>
   );

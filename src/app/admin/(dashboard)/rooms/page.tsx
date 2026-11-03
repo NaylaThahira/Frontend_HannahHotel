@@ -1,15 +1,45 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect */
 
+import { adminFetch, adminLocation, adminApi } from '@/lib/admin-api';
+import { usePathname } from 'next/navigation';
 import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, X, Upload, Check } from "lucide-react";
 import * as LucideIcons from 'lucide-react';
 import Image from "next/image";
 import IconPicker from "@/components/IconPicker";
 
+type FacilityItem = {
+  name: string;
+  icon: string;
+};
+
+type RoomItem = {
+  id: number;
+  name: string;
+  price: string;
+  description: string;
+  imageUrl?: string;
+  detailImageUrls?: string[];
+  facilities?: Array<FacilityItem | string>;
+  isFeatured?: boolean;
+};
+
+type DetailImagePreview = {
+  id: string;
+  url: string;
+  kind: 'existing' | 'new';
+  file?: File;
+};
+
 export default function RoomManagementPage() {
-  const [rooms, setRooms] = useState<any[]>([]);
+  const location = adminLocation(usePathname());
+  const api = adminApi(location);
+  const label = location === 'padang' ? 'Padang' : 'Painan';
+  const subtitleKey = location === 'padang' ? 'rooms_subtitle_padang' : 'rooms_subtitle';
+  const [rooms, setRooms] = useState<RoomItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingRoom, setEditingRoom] = useState<any>(null);
+  const [editingRoom, setEditingRoom] = useState<RoomItem | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [roomToDelete, setRoomToDelete] = useState<number | null>(null);
@@ -19,11 +49,18 @@ export default function RoomManagementPage() {
   const fetchRooms = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/rooms");
+      const res = await adminFetch(`${api}/api/rooms/manage`);
       const data = await res.json();
-      setRooms(data);
-    } catch (err) {
-      console.error(err);
+      const normalizedRooms = Array.isArray(data)
+        ? data
+        : Array.isArray((data as { rooms?: RoomItem[] })?.rooms)
+          ? (data as { rooms: RoomItem[] }).rooms
+          : [];
+
+      setRooms(normalizedRooms);
+    } catch (error) {
+      console.error(error);
+      setRooms([]);
     } finally {
       setIsLoading(false);
     }
@@ -31,31 +68,31 @@ export default function RoomManagementPage() {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/settings");
+      const res = await adminFetch(`${api}/api/settings`);
       const data = await res.json();
-      if (data.rooms_subtitle) setRoomsSubtitle(data.rooms_subtitle);
-    } catch (err) {
-      console.error(err);
+      setRoomsSubtitle(data[subtitleKey] || "");
+    } catch (error) {
+      console.error(error);
     }
   };
 
   useEffect(() => {
-    fetchRooms();
-    fetchSettings();
+    void fetchRooms();
+    void fetchSettings();
   }, []);
 
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
     try {
-      const res = await fetch("http://localhost:5000/api/settings", {
+      const res = await adminFetch(`${api}/api/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rooms_subtitle: roomsSubtitle })
+        body: JSON.stringify({ [subtitleKey]: roomsSubtitle })
       });
       if (!res.ok) throw new Error();
       setAlertMessage("Subtitle halaman berhasil disimpan!");
       setTimeout(() => setAlertMessage(null), 3000);
-    } catch (err) {
+    } catch {
       setAlertMessage("Gagal menyimpan subtitle");
       setTimeout(() => setAlertMessage(null), 3000);
     } finally {
@@ -68,7 +105,7 @@ export default function RoomManagementPage() {
     name: string;
     price: string;
     description: string;
-    facilities: { name: string, icon: string }[];
+    facilities: FacilityItem[];
   }>({
     name: "",
     price: "",
@@ -78,19 +115,30 @@ export default function RoomManagementPage() {
   const [newFacilityName, setNewFacilityName] = useState("");
   const [newFacilityIcon, setNewFacilityIcon] = useState("Check");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [detailFiles, setDetailFiles] = useState<File[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [detailPreviewUrls, setDetailPreviewUrls] = useState<DetailImagePreview[]>([]);
 
-  const openModal = (room: any = null) => {
+  const openModal = (room: RoomItem | null = null) => {
     setEditingRoom(room);
     if (room) {
       setFormData({
         name: room.name || "",
         price: room.price || "",
         description: room.description || "",
-        facilities: (room.facilities || []).map((f: any) => typeof f === 'string' ? { name: f, icon: 'Check' } : f),
+        facilities: (room.facilities || []).map((f) => typeof f === 'string' ? { name: f, icon: 'Check' } : f),
       });
+      const existingDetailImages = Array.isArray(room.detailImageUrls) ? room.detailImageUrls : [];
+      setDetailPreviewUrls(existingDetailImages.map((url: string, index: number) => ({
+        id: `existing-${index}`,
+        url: url.startsWith('http') || url.startsWith('/') ? (url.startsWith('/assets') ? url : `http://localhost:5000${url}`) : url,
+        kind: 'existing'
+      })));
+      setDetailFiles([]);
     } else {
       setFormData({ name: "", price: "", description: "", facilities: [] });
+      setDetailPreviewUrls([]);
+      setDetailFiles([]);
     }
     setNewFacilityName("");
     setNewFacilityIcon("Check");
@@ -104,35 +152,54 @@ export default function RoomManagementPage() {
     setIsModalOpen(false);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
+    detailPreviewUrls.forEach((detail) => {
+      if (detail.kind === 'new' && detail.url.startsWith('blob:')) {
+        URL.revokeObjectURL(detail.url);
+      }
+    });
+    setDetailPreviewUrls([]);
+    setDetailFiles([]);
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     try {
       const data = new FormData();
       data.append("name", formData.name);
       data.append("price", formData.price);
       data.append("description", formData.description);
       data.append("facilities", JSON.stringify(formData.facilities));
-      
+
       if (selectedFile) {
         data.append("image", selectedFile);
       }
+
+      const remainingExistingDetailUrls = detailPreviewUrls
+        .filter((detail) => detail.kind === 'existing')
+        .map((detail) => detail.url.replace('http://localhost:5000', ''));
+
+      if (editingRoom && remainingExistingDetailUrls.length > 0) {
+        data.append("detailImageUrls", JSON.stringify(remainingExistingDetailUrls.slice(0, 4)));
+      }
+
+      detailFiles.forEach((file) => {
+        data.append("detailImages", file);
+      });
 
       // If adding new room, set default isFeatured to false
       if (!editingRoom) {
         data.append("isFeatured", "false");
       }
 
-      const url = editingRoom 
-        ? `http://localhost:5000/api/rooms/${editingRoom.id}`
-        : "http://localhost:5000/api/rooms";
-        
+      const url = editingRoom
+        ? `${api}/api/rooms/${editingRoom.id}`
+        : `${api}/api/rooms`;
+
       const method = editingRoom ? "PUT" : "POST";
 
-      const res = await fetch(url, {
+      const res = await adminFetch(url, {
         method,
         body: data, // fetch automatically sets multipart/form-data header
       });
@@ -144,8 +211,9 @@ export default function RoomManagementPage() {
 
       closeModal();
       fetchRooms();
-    } catch (err: any) {
-      setAlertMessage(err.message || "Gagal menyimpan data kamar");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Gagal menyimpan data kamar";
+      setAlertMessage(message);
       setTimeout(() => setAlertMessage(null), 3000);
     } finally {
       setIsLoading(false);
@@ -160,56 +228,18 @@ export default function RoomManagementPage() {
     if (!roomToDelete) return;
     setIsLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/rooms/${roomToDelete}`, {
+      const res = await adminFetch(`${api}/api/rooms/${roomToDelete}`, {
         method: "DELETE"
       });
       if (!res.ok) throw new Error("Gagal menghapus kamar");
       fetchRooms();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setAlertMessage("Gagal menghapus kamar");
       setTimeout(() => setAlertMessage(null), 3000);
     } finally {
       setIsLoading(false);
       setRoomToDelete(null);
-    }
-  };
-
-  const toggleFeatured = async (roomId: number) => {
-    const room = rooms.find(r => r.id === roomId);
-    if (!room) return;
-
-    const currentFeaturedCount = rooms.filter(r => r.isFeatured).length;
-    
-    // Check limit
-    if (!room.isFeatured && currentFeaturedCount >= 2) {
-      setAlertMessage("Maksimal hanya 2 kamar yang dapat ditampilkan di halaman publik.");
-      setTimeout(() => setAlertMessage(null), 3000);
-      return;
-    }
-
-    try {
-      // Optimistic UI update
-      setRooms(rooms.map(r => r.id === roomId ? { ...r, isFeatured: !r.isFeatured } : r));
-
-      const res = await fetch(`http://localhost:5000/api/rooms/${roomId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: room.name,
-          price: room.price,
-          description: room.description,
-          isFeatured: !room.isFeatured
-        })
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to update status");
-      }
-    } catch (err) {
-      console.error(err);
-      // Revert if failed
-      fetchRooms();
     }
   };
 
@@ -256,6 +286,45 @@ export default function RoomManagementPage() {
     setFormData({ ...formData, facilities: newFacilities });
   };
 
+  const handleAddDetailFiles = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const newFiles = Array.from(files).slice(0, 4 - detailPreviewUrls.filter((item) => item.kind === 'existing' || item.kind === 'new').length);
+
+    if (newFiles.length === 0) {
+      setAlertMessage('Maksimal 4 foto detail kamar.');
+      setTimeout(() => setAlertMessage(null), 2500);
+      return;
+    }
+
+    const generatedPreviews = newFiles.map((file) => ({
+      id: `new-${Date.now()}-${Math.random()}`,
+      url: URL.createObjectURL(file),
+      kind: 'new' as const,
+      file
+    }));
+
+    setDetailFiles((prev) => [...prev, ...newFiles]);
+    setDetailPreviewUrls((prev) => [...prev, ...generatedPreviews].slice(0, 4));
+  };
+
+  const handleRemoveDetailPreview = (id: string) => {
+    setDetailPreviewUrls((prev) => {
+      const removed = prev.find((item) => item.id === id);
+      if (removed && removed.kind === 'new' && removed.url.startsWith('blob:')) {
+        URL.revokeObjectURL(removed.url);
+      }
+
+      return prev.filter((item) => item.id !== id);
+    });
+
+    setDetailFiles((prev) => {
+      const removedFile = detailPreviewUrls.find((item) => item.id === id)?.file;
+      if (!removedFile) return prev;
+      return prev.filter((file) => file !== removedFile);
+    });
+  };
+
   return (
     <div className="space-y-6 relative">
       {/* Custom Toast Alert */}
@@ -273,10 +342,10 @@ export default function RoomManagementPage() {
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Manajemen Kamar</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Manajemen Kamar {label}</h2>
           <p className="text-sm text-gray-500">Kelola daftar kamar yang ditampilkan di halaman publik.</p>
         </div>
-        <button 
+        <button
           onClick={() => openModal()}
           className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary/90 transition-colors"
         >
@@ -290,14 +359,14 @@ export default function RoomManagementPage() {
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">Penjelasan Singkat (Subtitle)</label>
           <div className="flex flex-col sm:flex-row gap-4">
-            <textarea 
+            <textarea
               rows={2}
               value={roomsSubtitle}
               onChange={(e) => setRoomsSubtitle(e.target.value)}
               className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               placeholder="Berbagai pilihan kamar yang dirancang khusus..."
             />
-            <button 
+            <button
               onClick={handleSaveSettings}
               disabled={isSavingSettings}
               className="shrink-0 h-fit rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
@@ -317,20 +386,19 @@ export default function RoomManagementPage() {
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gambar</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Kamar</th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Harga</th>
-                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Tampil di Beranda</th>
                 <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {rooms.map((room) => (
+              {Array.isArray(rooms) && rooms.map((room) => (
                 <tr key={room.id} className="hover:bg-gray-50">
                   <td className="whitespace-nowrap px-6 py-4">
                     <div className="relative h-16 w-24 overflow-hidden rounded-md border border-gray-200 bg-gray-100 flex items-center justify-center">
                       {room.imageUrl ? (
-                        <Image 
-                          src={room.imageUrl.startsWith('http') || room.imageUrl.startsWith('/') ? (room.imageUrl.startsWith('/assets') ? room.imageUrl : `http://localhost:5000${room.imageUrl}`) : room.imageUrl} 
-                          alt={room.name} 
-                          fill 
+                        <Image
+                          src={room.imageUrl.startsWith('http') || room.imageUrl.startsWith('/') ? (room.imageUrl.startsWith('/assets') ? room.imageUrl : `http://localhost:5000${room.imageUrl}`) : room.imageUrl}
+                          alt={room.name}
+                          fill
                           className="object-cover transition-transform duration-700 group-hover:scale-105"
                         />
                       ) : (
@@ -344,26 +412,16 @@ export default function RoomManagementPage() {
                   <td className="whitespace-nowrap px-6 py-4">
                     <div className="text-sm text-gray-500">{room.price}</div>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-center">
-                    <button 
-                      onClick={() => toggleFeatured(room.id)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${room.isFeatured ? 'bg-primary' : 'bg-gray-200'}`}
-                      role="switch"
-                      aria-checked={room.isFeatured}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${room.isFeatured ? 'translate-x-6' : 'translate-x-1'}`} />
-                    </button>
-                  </td>
                   <td className="whitespace-nowrap px-6 py-4 text-right text-sm font-medium">
                     <div className="flex justify-end gap-3">
-                      <button 
+                      <button
                         onClick={() => openModal(room)}
                         className="text-orange hover:text-orange-ink transition-colors"
                         title="Edit"
                       >
                         <Edit2 size={18} />
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDelete(room.id)}
                         className="text-red-500 hover:text-red-700 transition-colors"
                         title="Hapus"
@@ -374,6 +432,13 @@ export default function RoomManagementPage() {
                   </td>
                 </tr>
               ))}
+              {!Array.isArray(rooms) || rooms.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-8 text-center text-sm text-gray-500">
+                    Belum ada data kamar.
+                  </td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>
@@ -391,15 +456,15 @@ export default function RoomManagementPage() {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form className="p-6 space-y-5 overflow-y-auto flex-1" onSubmit={handleFormSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">Nama Kamar</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-mint focus:outline-none focus:ring-1 focus:ring-mint"
                     placeholder="Contoh: Superior Room"
@@ -407,8 +472,8 @@ export default function RoomManagementPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">Harga</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={formData.price}
                     onChange={handlePriceChange}
                     required
@@ -417,13 +482,13 @@ export default function RoomManagementPage() {
                   />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">Deskripsi</label>
-                <textarea 
+                <textarea
                   rows={3}
                   value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   required
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-mint focus:outline-none focus:ring-1 focus:ring-mint"
                   placeholder="Penjelasan singkat mengenai kamar..."
@@ -434,13 +499,13 @@ export default function RoomManagementPage() {
                 <label className="block text-sm font-medium text-gray-700">Fasilitas Kamar</label>
                 <div className="flex gap-2 relative">
                   <div className="relative w-1/3 min-w-[160px]">
-                    <IconPicker 
+                    <IconPicker
                       value={newFacilityIcon}
                       onChange={setNewFacilityIcon}
                     />
                   </div>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={newFacilityName}
                     onChange={(e) => handleFacilityNameChange(e.target.value)}
                     onKeyDown={(e) => {
@@ -472,7 +537,7 @@ export default function RoomManagementPage() {
                       </thead>
                       <tbody className="divide-y divide-gray-200 bg-white">
                         {formData.facilities.map((fac, idx) => {
-                          const IconComp = (LucideIcons as any)[fac.icon] || Check;
+                          const IconComp = (LucideIcons as unknown as Record<string, typeof Check>)[fac.icon] || Check;
                           return (
                             <tr key={idx} className="hover:bg-gray-50">
                               <td className="px-4 py-2"><IconComp size={20} className="text-orange drop-shadow-sm" /></td>
@@ -492,8 +557,8 @@ export default function RoomManagementPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Foto Kamar</label>
-                <label 
+                <label className="block text-sm font-medium text-gray-700">Foto Kamar Utama</label>
+                <label
                   htmlFor="file-upload"
                   className="mt-1 flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 px-6 py-8 hover:bg-gray-50 transition-colors cursor-pointer"
                 >
@@ -503,7 +568,7 @@ export default function RoomManagementPage() {
                     <p>atau drag and drop</p>
                   </div>
                   <p className="text-xs leading-5 text-gray-500 mt-1">PNG, JPG, WEBP maks 5MB</p>
-                  
+
                   {previewUrl ? (
                     <div className="mt-4 relative h-32 w-48 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
                       <Image src={previewUrl} alt="Preview Foto Baru" fill className="object-cover" />
@@ -511,21 +576,21 @@ export default function RoomManagementPage() {
                     </div>
                   ) : editingRoom && editingRoom.imageUrl ? (
                     <div className="mt-4 relative h-32 w-48 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
-                      <Image 
-                        src={editingRoom.imageUrl.startsWith('http') || editingRoom.imageUrl.startsWith('/') ? (editingRoom.imageUrl.startsWith('/assets') ? editingRoom.imageUrl : `http://localhost:5000${editingRoom.imageUrl}`) : editingRoom.imageUrl} 
-                        alt="Preview Foto Lama" 
-                        fill 
-                        className="object-cover" 
+                      <Image
+                        src={editingRoom.imageUrl.startsWith('http') || editingRoom.imageUrl.startsWith('/') ? (editingRoom.imageUrl.startsWith('/assets') ? editingRoom.imageUrl : `http://localhost:5000${editingRoom.imageUrl}`) : editingRoom.imageUrl}
+                        alt="Preview Foto Lama"
+                        fill
+                        className="object-cover"
                       />
                       <div className="absolute top-2 left-2 bg-black/60 px-2 py-1 rounded text-xs font-medium text-white backdrop-blur-sm">Foto Lama</div>
                     </div>
                   ) : null}
-                  
-                  <input 
-                    id="file-upload" 
-                    name="file-upload" 
-                    type="file" 
-                    className="sr-only" 
+
+                  <input
+                    id="file-upload"
+                    name="file-upload"
+                    type="file"
+                    className="sr-only"
                     accept="image/png, image/jpeg, image/webp"
                     onChange={(e) => {
                       const file = e.target.files?.[0] || null;
@@ -541,16 +606,56 @@ export default function RoomManagementPage() {
                 </label>
               </div>
 
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">Foto Detail Kamar (maksimal 4)</label>
+                <label
+                  htmlFor="detail-file-upload"
+                  className="mt-1 flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 px-6 py-6 hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  <Upload className="h-8 w-8 text-gray-400 mb-3" aria-hidden="true" />
+                  <div className="text-sm leading-6 text-gray-600 text-center">
+                    <span className="font-semibold text-primary hover:text-orange">Tambah foto detail</span>
+                    <p className="text-xs text-gray-500">Contoh: kamar mandi, kasur, sisi kanan, sisi kiri</p>
+                  </div>
+                  <input
+                    id="detail-file-upload"
+                    type="file"
+                    multiple
+                    accept="image/png, image/jpeg, image/webp"
+                    className="sr-only"
+                    onChange={(e) => handleAddDetailFiles(e.target.files)}
+                  />
+                </label>
+
+                {detailPreviewUrls.length > 0 && (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {detailPreviewUrls.map((detail, idx) => (
+                      <div key={detail.id} className="relative h-28 overflow-hidden rounded-lg border border-gray-200 shadow-sm">
+                        <Image src={detail.url} alt={`Foto detail ${idx + 1}`} fill className="object-cover" />
+                        <button
+                          type="button"
+                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white shadow-sm transition hover:bg-red-700"
+                          onClick={() => handleRemoveDetailPreview(detail.id)}
+                          aria-label={`Hapus foto detail ${idx + 1}`}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="mt-6 flex items-center justify-end gap-3 border-t border-gray-100 pt-5">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={closeModal}
                   disabled={isLoading}
                   className="rounded-md px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
                 >
                   Batal
                 </button>
-                <button 
+                <button
                   type="submit"
                   disabled={isLoading}
                   className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
@@ -574,7 +679,7 @@ export default function RoomManagementPage() {
             <p className="text-sm text-gray-500 mb-6">
               Apakah Anda yakin ingin menghapus kamar ini? Tindakan ini tidak dapat dibatalkan dan semua data terkait akan terhapus.
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="button"

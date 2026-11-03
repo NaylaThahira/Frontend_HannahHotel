@@ -4,39 +4,44 @@ import Link from 'next/link'
 import Brand from './Brand'
 import { useState, useEffect } from 'react'
 
+type FooterLink = { label: string; url: string }
+
+const defaultFooterLinks: FooterLink[] = [
+  { label: "Beranda", url: "/" },
+  { label: "Katalog Kamar", url: "/rooms" },
+  { label: "Fasilitas", url: "/#facilities" },
+  { label: "Tentang Kami", url: "/#about" }
+]
+
 export default function Footer() {
   const [settings, setSettings] = useState({
     footer_about: "Kenyamanan Islami di jantung Kota Painan. Menghadirkan pengalaman menginap yang damai dan sesuai nilai Syari'ah.",
     footer_address: "Jl. Ilyas Yakub, Painan",
-    footer_phone: "(0756) 700 000",
-    footer_email: "info@hannahhotel.id",
-    footer_links: [
-      { label: "Beranda", url: "/" },
-      { label: "Katalog Kamar", url: "/rooms" },
-      { label: "Fasilitas", url: "/#facilities" },
-      { label: "Tentang Kami", url: "/#about" }
-    ],
+    footer_phone: "0811 6617 717",
+    footer_email: "",
+    footer_links: defaultFooterLinks,
     footer_show_newsletter: true
   });
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/settings');
+        const res = await fetch('http://localhost:5000/api/settings', { cache: 'no-store' });
+        if (!res.ok) throw new Error('Failed to fetch footer settings');
         const data = await res.json();
-        
-        let parsedLinks = settings.footer_links;
+
+        let parsedLinks = defaultFooterLinks;
         if (data.footer_links) {
           try {
             parsedLinks = JSON.parse(data.footer_links);
-          } catch (e) {
+          } catch {
             console.error("Failed to parse footer links");
           }
         }
-        
+
         // Merge fetched data with defaults
-        setSettings(prev => ({ 
-          ...prev, 
+        setSettings(prev => ({
+          ...prev,
           ...data,
           footer_links: parsedLinks,
           footer_show_newsletter: data.footer_show_newsletter === "false" ? false : true
@@ -46,7 +51,11 @@ export default function Footer() {
       }
     };
     fetchSettings();
+    window.addEventListener('focus', fetchSettings);
+    return () => window.removeEventListener('focus', fetchSettings);
   }, []);
+
+  const contactEmail = settings.footer_email.trim();
 
   return (
     <footer className="bg-gradient-to-br from-primary to-[#002814] text-white">
@@ -55,7 +64,7 @@ export default function Footer() {
         <div>
           <h3 className="text-sm font-bold uppercase tracking-widest text-mint">Tautan Cepat</h3>
           <ul className="mt-5 space-y-3 text-sm text-white/75">
-            {settings.footer_links.map((link: any, idx: number) => (
+            {settings.footer_links.map((link: FooterLink, idx: number) => (
               <li key={idx}>
                 <Link className="hover:text-peach transition-colors" href={link.url}>{link.label}</Link>
               </li>
@@ -67,7 +76,7 @@ export default function Footer() {
           <ul className="mt-5 space-y-3 text-sm leading-6 text-white/75">
             <li>{settings.footer_address}</li>
             <li><a className="hover:text-peach" href={`tel:${settings.footer_phone.replace(/\D/g, '')}`}>{settings.footer_phone}</a></li>
-            <li><a className="hover:text-peach" href={`mailto:${settings.footer_email}`}>{settings.footer_email}</a></li>
+            <li><a className="hover:text-peach" href={contactEmail ? `mailto:${contactEmail}` : 'https://www.hannahhotelsyariah.com'}>{contactEmail || 'www.hannahhotelsyariah.com'}</a></li>
           </ul>
         </div>
         {settings.footer_show_newsletter && (

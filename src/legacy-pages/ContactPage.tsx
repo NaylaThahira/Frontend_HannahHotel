@@ -42,7 +42,7 @@ export default function ContactPage() {
               <article className="relative overflow-hidden rounded-lg bg-[#e8f5ee] p-6 text-primary shadow-sm">
                 <span className="text-xs font-bold uppercase tracking-widest text-[#1e6b3e]">Kontak</span>
                 <h2 className="mt-4 font-display text-2xl font-semibold">Hubungi Langsung</h2>
-                <p className="mt-3 text-sm leading-7"><a href="tel:+62756700000">(0756) 700 000</a><br /><a href="mailto:info@hannahhotel.id">info@hannahhotel.id</a></p>
+                <p className="mt-3 text-sm leading-7"><a href="tel:+628116617717">0811 6617 717</a><br /><a href="mailto:info@hannahhotel.id">info@hannahhotel.id</a></p>
               </article>
             </div>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { adminFetch } from '@/lib/admin-api';
 import { useState, useEffect } from "react";
 import { Plus, Trash2, X, Upload, Check } from "lucide-react";
 import Image from "next/image";
@@ -19,7 +20,7 @@ export default function GalleryManagementPage() {
   const fetchGalleries = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/galleries");
+      const res = await adminFetch("http://localhost:5000/api/galleries");
       const data = await res.json();
       setGalleries(data);
     } catch (err) {
@@ -31,7 +32,7 @@ export default function GalleryManagementPage() {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/settings");
+      const res = await adminFetch("http://localhost:5000/api/settings");
       const data = await res.json();
       if (data.galleries_subtitle) setGalleriesSubtitle(data.galleries_subtitle);
     } catch (err) {
@@ -47,7 +48,7 @@ export default function GalleryManagementPage() {
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
     try {
-      const res = await fetch("http://localhost:5000/api/settings", {
+      const res = await adminFetch("http://localhost:5000/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ galleries_subtitle: galleriesSubtitle })
@@ -67,7 +68,7 @@ export default function GalleryManagementPage() {
     if (!confirm("Apakah Anda yakin ingin menghapus foto ini dari galeri?")) return;
     
     try {
-      const res = await fetch(`http://localhost:5000/api/galleries/${id}`, {
+      const res = await adminFetch(`http://localhost:5000/api/galleries/${id}`, {
         method: "DELETE"
       });
       if (!res.ok) throw new Error("Gagal menghapus foto");
@@ -92,7 +93,7 @@ export default function GalleryManagementPage() {
       data.append("title", formData.title);
       data.append("image", selectedFile);
 
-      const res = await fetch("http://localhost:5000/api/galleries", {
+      const res = await adminFetch("http://localhost:5000/api/galleries", {
         method: "POST",
         body: data,
       });
@@ -188,7 +189,7 @@ export default function GalleryManagementPage() {
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">No Image</div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
+              <div className="absolute inset-0 bg-linear-to-t from-black/70 via-transparent to-transparent opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
                 <p className="text-white text-sm font-medium truncate mb-2">{img.title}</p>
                 <button 
                   onClick={() => handleDelete(img.id)}

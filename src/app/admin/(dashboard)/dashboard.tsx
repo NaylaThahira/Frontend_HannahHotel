@@ -1,10 +1,15 @@
+import { headers } from 'next/headers';
+import Link from 'next/link';
 import { Users, BedDouble } from "lucide-react";
+import AttractionsManagement from '@/components/admin/AttractionsManagement';
+import BranchManagement from '@/components/admin/BranchManagement';
 import HomeManagement from "@/components/admin/HomeManagement";
 
 export default async function AdminDashboardPage() {
+  const location = (await headers()).get('x-hotel-location') === 'padang' ? 'padang' : 'painan';
   let roomTypesCount = "0";
   try {
-    const res = await fetch("http://localhost:5000/api/rooms", { cache: "no-store" });
+    const res = await fetch(`http://localhost:5000/api/rooms?location=${location}`, { cache: "no-store" });
     if (res.ok) {
       const rooms = await res.json();
       roomTypesCount = rooms.length.toString();
@@ -69,8 +74,9 @@ export default async function AdminDashboardPage() {
         </div>
       </div>
 
+      <BranchManagement />
       <div className="border-t border-gray-200 pt-8 mt-8">
-        <HomeManagement />
+        {location === 'painan' ? <HomeManagement /> : <><AttractionsManagement /><Link href="/adminPadang/rooms" className="inline-flex rounded-lg bg-primary px-6 py-3 font-semibold text-white">Manajemen Kamar Padang</Link></>}
       </div>
     </div>
   );

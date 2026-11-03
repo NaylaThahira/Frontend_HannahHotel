@@ -1,11 +1,12 @@
 "use client";
 
+import { adminFetch, adminApi, adminBase } from '@/lib/admin-api';
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,21 +18,25 @@ export default function AdminLoginPage() {
     setError("");
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
+      const normalizedUsername = username.trim().toLowerCase();
+      const location = normalizedUsername === 'adminpadang' ? 'padang' : 'painan';
+      const api = adminApi(location);
+      const res = await adminFetch(`${api}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username: normalizedUsername, password }),
         credentials: "include" // Penting untuk menyimpan cookie HttpOnly dari server
       });
 
       const result = await res.json();
 
       if (!res.ok || !result.success) {
-        setError(result.message || "Email atau password tidak valid");
+        setError(result.message || "Username atau password tidak valid");
         setLoading(false);
       } else {
         // Berhasil login dan cookie sudah tersimpan
-        router.push("/admin");
+        router.replace(adminBase(result.data.location));
+        router.refresh();
       }
     } catch (err) {
       console.error(err);
@@ -43,7 +48,7 @@ export default function AdminLoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center relative overflow-hidden" style={{ background: "linear-gradient(0deg, #E8F5EE, #E8F5EE), #FFFFFF" }}>
       {/* Ambient background pattern placeholder */}
-      <div className="absolute inset-0 pointer-events-none opacity-5 bg-[url('/pattern.png')] bg-repeat" />
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-mint/20 to-transparent" />
 
       {/* Main Card */}
       <div className="relative z-10 flex flex-col items-center bg-white rounded shadow-[0px_4px_20px_rgba(0,0,0,0.05)] w-full max-w-[448px]" style={{ border: "1px solid rgba(191, 201, 190, 0.3)" }}>
@@ -63,7 +68,7 @@ export default function AdminLoginPage() {
             Hannah Hotel Syari'ah
           </h1>
           <p className="font-sans text-sm text-center" style={{ color: "#404941" }}>
-            Admin Portal
+            Login Admin
           </p>
         </div>
 
@@ -76,20 +81,21 @@ export default function AdminLoginPage() {
               </div>
             )}
             
-            {/* Username / Email Field */}
+            {/* Username Field */}
             <div className="flex flex-col space-y-2">
               <label className="font-sans font-semibold text-sm tracking-wide" style={{ color: "#404941" }}>
-                Username / Email
+                Username
               </label>
               <div className="relative w-full h-[50px]">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#707A70]">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
                 </div>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@hannahhotel.com"
+                  type="text"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Masukkan username"
                   required
                   className="w-full h-full pl-10 pr-4 outline-none font-sans text-base text-[#404941]"
                   style={{ background: "#FCF9F8", border: "1px solid #BFC9BE" }}
@@ -108,9 +114,10 @@ export default function AdminLoginPage() {
                 </div>
                 <input
                   type="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter admin password"
+                  placeholder="Masukkan password"
                   required
                   className="w-full h-full pl-10 pr-4 outline-none font-sans text-base text-[#404941]"
                   style={{ background: "#FCF9F8", border: "1px solid #BFC9BE" }}

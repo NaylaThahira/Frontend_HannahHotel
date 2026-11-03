@@ -2,10 +2,10 @@ import { useEffect } from 'react'
 import { Route, Routes, useLocation } from 'react-router-dom'
 import Footer from './components/Footer'
 import Header from './components/Header'
-import ContactPage from './pages/ContactPage'
-import FacilitiesPage from './pages/FacilitiesPage'
-import HomePage from './pages/HomePage'
-import RoomsPage from './pages/RoomsPage'
+import ContactPage from './legacy-pages/ContactPage'
+import FacilitiesPage from './legacy-pages/FacilitiesPage'
+import HomePage from './legacy-pages/HomePage'
+import RoomsPage from './legacy-pages/RoomsPage'
 
 function ScrollManager() {
   const { pathname, hash } = useLocation()

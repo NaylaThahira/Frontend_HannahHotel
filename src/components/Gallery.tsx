@@ -55,7 +55,7 @@ export default function Gallery() {
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-500">No Image</div>
               )}
-              <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/60 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+              <div className="absolute inset-0 flex items-end bg-linear-to-t from-black/60 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                 <div className="p-4">
                   <h3 className="text-sm font-semibold tracking-[0.7px] text-white">{img.title}</h3>
                 </div>

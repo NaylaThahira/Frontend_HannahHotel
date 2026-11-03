@@ -33,7 +33,7 @@ export default async function VisiMisiPage() {
         description={visionSubtitle}
         patterned={true}
       />
-      <section className="mx-auto max-w-5xl px-5 py-24 sm:px-8">
+      <section className="mx-auto max-w-7xl px-5 py-24 sm:px-8">
         <div className="grid gap-16 lg:grid-cols-2">
           {/* Visi */}
           <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-100 h-fit">

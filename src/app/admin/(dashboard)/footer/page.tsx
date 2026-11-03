@@ -1,5 +1,6 @@
 "use client";
 
+import { adminFetch } from '@/lib/admin-api';
 import { useState, useEffect } from "react";
 import { Check, FileText, MapPin, Phone, Mail, Link as LinkIcon, Plus, Trash2, ChevronDown, Home, Bed, Image as ImageIcon, Coffee, Info } from "lucide-react";
 
@@ -34,9 +35,9 @@ export default function FooterSettingsPage() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/settings");
+        const res = await adminFetch("http://localhost:5000/api/settings");
         const data = await res.json();
-        
+
         let parsedLinks = formData.footer_links;
         if (data.footer_links) {
           try {
@@ -66,7 +67,7 @@ export default function FooterSettingsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    
+
     try {
       const dataToSend = {
         ...formData,
@@ -74,14 +75,14 @@ export default function FooterSettingsPage() {
         footer_show_newsletter: formData.footer_show_newsletter.toString()
       };
 
-      const res = await fetch("http://localhost:5000/api/settings", {
+      const res = await adminFetch("http://localhost:5000/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dataToSend)
       });
-      
+
       if (!res.ok) throw new Error("Failed to save settings");
-      
+
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
     } catch (err) {
@@ -127,7 +128,7 @@ export default function FooterSettingsPage() {
         {/* Form */}
         <div className="space-y-6">
           <form onSubmit={handleSubmit} className="space-y-6">
-            
+
             {/* About Section */}
             <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden transition-shadow hover:shadow-md">
               <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-4 flex items-center gap-3">
@@ -136,10 +137,10 @@ export default function FooterSettingsPage() {
               </div>
               <div className="p-6">
                 <p className="text-sm text-gray-500 mb-3">Teks ini akan tampil tepat di bawah logo Hannah Hotel pada sudut kiri footer.</p>
-                <textarea 
+                <textarea
                   rows={4}
                   value={formData.footer_about}
-                  onChange={(e) => setFormData({...formData, footer_about: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, footer_about: e.target.value })}
                   required
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-mint focus:outline-none focus:ring-2 focus:ring-mint/20 transition-all"
                   placeholder="Kenyamanan Islami di jantung Kota Painan..."
@@ -157,16 +158,14 @@ export default function FooterSettingsPage() {
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, footer_show_newsletter: !formData.footer_show_newsletter })}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-mint focus:ring-offset-2 ${
-                    formData.footer_show_newsletter ? 'bg-mint' : 'bg-gray-200'
-                  }`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-mint focus:ring-offset-2 ${formData.footer_show_newsletter ? 'bg-mint' : 'bg-gray-200'
+                    }`}
                   role="switch"
                   aria-checked={formData.footer_show_newsletter}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      formData.footer_show_newsletter ? 'translate-x-6' : 'translate-x-1'
-                    }`}
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${formData.footer_show_newsletter ? 'translate-x-6' : 'translate-x-1'
+                      }`}
                   />
                 </button>
               </div>
@@ -194,11 +193,11 @@ export default function FooterSettingsPage() {
               </div>
               <div className="p-6 space-y-4">
                 <p className="text-sm text-gray-500 mb-2">Tautan navigasi cepat yang membantu pengunjung menelusuri halaman.</p>
-                
+
                 {formData.footer_links.map((link, idx) => (
                   <div key={idx} className="flex items-center gap-3">
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={link.label}
                       onChange={(e) => handleLinkChange(idx, 'label', e.target.value)}
                       placeholder="Nama Tautan (misal: Beranda)"
@@ -206,7 +205,7 @@ export default function FooterSettingsPage() {
                       className="w-1/3 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-mint focus:outline-none focus:ring-2 focus:ring-mint/20 transition-all"
                     />
                     <div className="relative flex-1">
-                      <div 
+                      <div
                         className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-700 bg-white cursor-pointer hover:border-gray-400 focus-within:border-mint focus-within:ring-2 focus-within:ring-mint/20 transition-all shadow-sm flex items-center justify-between"
                         onClick={() => setOpenDropdownIndex(openDropdownIndex === idx ? null : idx)}
                       >
@@ -215,7 +214,7 @@ export default function FooterSettingsPage() {
                         </span>
                         <ChevronDown size={18} className={`text-gray-400 transition-transform ${openDropdownIndex === idx ? "rotate-180" : ""}`} />
                       </div>
-                      
+
                       {openDropdownIndex === idx && (
                         <div className="absolute z-10 mt-1 w-full rounded-xl border border-gray-100 bg-white shadow-xl overflow-y-auto max-h-60 py-1 animate-in fade-in zoom-in-95 duration-100">
                           {URL_OPTIONS.map((opt) => {
@@ -227,7 +226,7 @@ export default function FooterSettingsPage() {
                                 onClick={() => {
                                   const newLinks = [...formData.footer_links];
                                   newLinks[idx].url = opt.value;
-                                  
+
                                   setFormData({ ...formData, footer_links: newLinks });
                                   setOpenDropdownIndex(null);
                                 }}
@@ -256,7 +255,7 @@ export default function FooterSettingsPage() {
                     </button>
                   </div>
                 ))}
-                
+
                 {formData.footer_links.length === 0 && (
                   <div className="text-center py-6 text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-lg">
                     Belum ada tautan. Silakan tambah baru.
@@ -274,10 +273,10 @@ export default function FooterSettingsPage() {
               <div className="p-6 space-y-5">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 flex items-center gap-2">Alamat Lengkap</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={formData.footer_address}
-                    onChange={(e) => setFormData({...formData, footer_address: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, footer_address: e.target.value })}
                     required
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-mint focus:outline-none focus:ring-2 focus:ring-mint/20 transition-all"
                     placeholder="Jl. Ilyas Yakub, Painan"
@@ -289,23 +288,23 @@ export default function FooterSettingsPage() {
                     <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                       <Phone className="h-4 w-4 text-gray-400" /> Nomor Telepon
                     </label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={formData.footer_phone}
-                      onChange={(e) => setFormData({...formData, footer_phone: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, footer_phone: e.target.value })}
                       required
                       className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-mint focus:outline-none focus:ring-2 focus:ring-mint/20 transition-all"
-                      placeholder="(0756) 700 000"
+                      placeholder="0811 6617 717"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                       <Mail className="h-4 w-4 text-gray-400" /> Alamat Email
                     </label>
-                    <input 
-                      type="email" 
+                    <input
+                      type="email"
                       value={formData.footer_email}
-                      onChange={(e) => setFormData({...formData, footer_email: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, footer_email: e.target.value })}
                       required
                       className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-mint focus:outline-none focus:ring-2 focus:ring-mint/20 transition-all"
                       placeholder="info@hannahhotel.id"
@@ -317,14 +316,14 @@ export default function FooterSettingsPage() {
 
             {/* Action Bar */}
             <div className="flex items-center gap-4 pt-2">
-              <button 
+              <button
                 type="submit"
                 disabled={isSaving}
                 className="rounded-lg bg-primary px-8 py-3 text-sm font-bold tracking-wide text-white shadow-sm hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
-              
+
               {showSuccess && (
                 <div className="flex items-center gap-2 text-sm font-medium text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg animate-in fade-in slide-in-from-left-2">
                   <Check size={18} />

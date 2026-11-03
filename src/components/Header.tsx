@@ -8,10 +8,20 @@ import { ChevronDown } from 'lucide-react'
 
 const navigation = [
   { label: 'Beranda', href: '/' },
-  { label: 'Kamar', href: '/rooms' },
-  { label: 'Fasilitas', href: '/facilities' },
-  { 
-    label: 'Tentang Kami', 
+  { label: 'Kamar', href: '/rooms', subItems: [
+    { label: 'Padang', href: '/rooms/padang' },
+    { label: 'Painan', href: '/rooms/painan' },
+  ] },
+  {
+    label: 'Fasilitas',
+    href: '/facilities',
+    subItems: [
+      { label: 'Fasilitas', href: '/facilities' },
+      { label: 'Paket', href: '/packages' },
+    ],
+  },
+  {
+    label: 'Tentang Kami',
     href: '#about',
     subItems: [
       { label: 'Sejarah', href: '/sejarah' },
@@ -28,8 +38,7 @@ export default function Header() {
   const pathname = usePathname()
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
-    `border-b-2 py-2 text-sm font-semibold tracking-wide transition-colors hover:border-peach hover:text-peach ${
-      isActive ? 'border-peach text-peach' : 'border-transparent text-white/80'
+    `border-b-2 py-2 text-sm font-semibold tracking-wide transition-colors hover:border-peach hover:text-peach ${isActive ? 'border-peach text-peach' : 'border-transparent text-white/80'
     }`
 
   return (
@@ -42,7 +51,7 @@ export default function Header() {
         <nav className="hidden items-center gap-7 lg:flex" aria-label="Navigasi utama">
           {navigation.map((item) => {
             const isMatch = !item.href.includes('#') && !!pathname && (item.href === '/' ? pathname === '/' : pathname.startsWith(item.href))
-            
+
             if (item.subItems) {
               return (
                 <div key={item.label} className="group relative">
@@ -54,9 +63,9 @@ export default function Header() {
                   <div className="absolute left-0 top-[calc(100%+0.5rem)] invisible w-48 origin-top-left -translate-y-2 scale-95 rounded-md bg-white p-1.5 opacity-0 shadow-xl ring-1 ring-black/5 transition-all duration-200 ease-out group-hover:visible group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100">
                     <div className="flex flex-col">
                       {item.subItems.map((subItem) => (
-                        <Link 
-                          key={subItem.label} 
-                          href={subItem.href} 
+                        <Link
+                          key={subItem.label}
+                          href={subItem.href}
                           className="block rounded-md px-4 py-2.5 text-sm font-semibold text-ink/80 transition-all hover:bg-cream hover:text-orange hover:pl-5"
                         >
                           {subItem.label}
@@ -92,12 +101,12 @@ export default function Header() {
           <div className="mx-auto flex max-w-7xl flex-col">
             {navigation.map((item) => {
               const isMatch = !item.href.includes('#') && !!pathname && (item.href === '/' ? pathname === '/' : pathname.startsWith(item.href))
-              
+
               if (item.subItems) {
                 const isOpen = openDropdown === item.label
                 return (
                   <div key={item.label} className="flex flex-col">
-                    <button 
+                    <button
                       onClick={() => setOpenDropdown(isOpen ? null : item.label)}
                       className="flex w-full items-center justify-between border-b border-white/10 py-3 text-left text-sm font-semibold text-white/85 transition-colors hover:text-peach"
                     >
@@ -108,13 +117,13 @@ export default function Header() {
                     <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-48 opacity-100 mt-1' : 'max-h-0 opacity-0'}`}>
                       <div className="flex flex-col space-y-1 rounded-lg bg-black/20 p-2">
                         {item.subItems.map((subItem) => (
-                          <Link 
-                            key={subItem.label} 
-                            href={subItem.href} 
+                          <Link
+                            key={subItem.label}
+                            href={subItem.href}
                             onClick={() => {
                               setMenuOpen(false)
                               setOpenDropdown(null)
-                            }} 
+                            }}
                             className="block rounded-md px-4 py-2 text-sm font-medium text-white/80 transition-all hover:bg-white/10 hover:text-peach hover:pl-5"
                           >
                             {subItem.label}

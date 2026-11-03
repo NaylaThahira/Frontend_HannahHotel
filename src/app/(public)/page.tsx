@@ -1,7 +1,9 @@
 import FeaturedRooms from '@/components/FeaturedRooms'
 import Gallery from '@/components/Gallery'
 import Hero from '@/components/Hero'
+import HomeFloatingActions from '@/components/HomeFloatingActions'
 import TrustBar from '@/components/TrustBar'
+import { defaultPainanAttractions, parseAttractions } from '@/lib/attractions'
 import TouristAttractions from '@/components/TouristAttractions'
 
 async function getSettings() {
@@ -25,13 +27,6 @@ export default async function HomePage() {
     } catch(e) {}
   }
 
-  let attractionsList = undefined;
-  if (settings.tourist_attractions_json) {
-    try {
-      attractionsList = JSON.parse(settings.tourist_attractions_json);
-    } catch(e) {}
-  }
-
   const renderSection = (id: string) => {
     switch (id) {
       case 'hero':
@@ -41,7 +36,7 @@ export default async function HomePage() {
       case 'rooms':
         return <FeaturedRooms key="rooms" />;
       case 'attractions':
-        return <TouristAttractions key="attractions" attractions={attractionsList} />;
+        return <TouristAttractions key="attractions" painan={parseAttractions(settings.tourist_attractions_json, defaultPainanAttractions)} padang={parseAttractions(settings.tourist_attractions_padang_json)} />;
       case 'gallery':
         return <Gallery key="gallery" />;
       default:
@@ -52,6 +47,7 @@ export default async function HomePage() {
   return (
     <>
       {sectionsOrder.map(section => renderSection(section))}
+      <HomeFloatingActions whatsappNumber={settings.home_whatsapp_number} reviewUrl={settings.home_review_url} />
     </>
   )
 }

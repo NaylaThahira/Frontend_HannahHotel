@@ -72,7 +72,7 @@ export default function FullGalleryPage() {
                     <div className="w-full h-full flex items-center justify-center text-gray-500">No Image</div>
                   )}
                 </div>
-                <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                <div className="absolute inset-0 flex flex-col justify-end bg-linear-to-t from-black/80 via-black/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                   <div className="p-5 transform translate-y-4 transition-transform duration-300 group-hover:translate-y-0">
                     <h3 className="text-lg font-bold text-white shadow-sm">{img.title}</h3>
                   </div>
