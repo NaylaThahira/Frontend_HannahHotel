@@ -1,22 +1,8 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import * as LucideIcons from 'lucide-react';
-import { Search, ChevronDown, Check } from 'lucide-react';
-
-const HOTEL_ICONS = [
-  'AirVent', 'Bath', 'Bed', 'BedDouble', 'BedSingle', 'Bell', 'BellConcierge', 'Briefcase', 'Building', 
-  'Car', 'Check', 'CheckCircle', 'Cigarette', 'CigaretteOff', 'Clock', 'Coffee', 'CupSoda', 
-  'DoorClosed', 'DoorOpen', 'Droplets', 'Dumbbell', 'Flame', 'Gamepad2', 'Home', 'Info', 'Key', 
-  'Lamp', 'LampDesk', 'Laptop', 'Lock', 'Luggage', 'Map', 'MapPin', 'Martini', 'Monitor', 'Navigation', 
-  'ParkingCircle', 'Phone', 'Radio', 'Refrigerator', 'Shield', 'ShieldCheck', 'Shirt', 'ShowerHead', 
-  'Snowflake', 'Sofa', 'Star', 'Thermometer', 'ThermometerSnowflake', 'ThermometerSun', 'Trees', 'Tv', 
-  'Unlock', 'Utensils', 'UtensilsCrossed', 'Volume2', 'VolumeX', 'WashingMachine', 'Waves', 'Wifi', 
-  'WifiOff', 'Wind', 'Wine', 'Users'
-].sort();
-
-// Filter curated list to ensure they exist in the current lucide-react version
-const allIconNames = HOTEL_ICONS.filter((name) => (LucideIcons as any)[name] !== undefined);
+import { Search, ChevronDown } from 'lucide-react';
+import { HOTEL_ICON_MAP, HOTEL_ICON_NAMES, getHotelIcon } from '@/lib/hotel-icons';
 
 interface IconPickerProps {
   value: string;
@@ -44,16 +30,15 @@ export default function IconPicker({ value, onChange, className = '' }: IconPick
 
   const filteredIcons = useMemo(() => {
     if (!search.trim()) {
-      return allIconNames.slice(0, 100);
+      return HOTEL_ICON_NAMES.slice(0, 100);
     }
     const lowerSearch = search.toLowerCase();
-    return allIconNames
+    return HOTEL_ICON_NAMES
       .filter((name) => name.toLowerCase().includes(lowerSearch))
-      .slice(0, 100); // limit to 100 results for performance
+      .slice(0, 100);
   }, [search]);
 
-  // Selected icon component
-  const SelectedIcon = (LucideIcons as any)[value] || LucideIcons.Check;
+  const SelectedIcon = getHotelIcon(value);
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
@@ -87,7 +72,7 @@ export default function IconPicker({ value, onChange, className = '' }: IconPick
               <div className="text-center text-xs text-gray-500 py-2">Ikon tidak ditemukan</div>
             ) : (
               filteredIcons.map((iconName) => {
-                const IconComponent = (LucideIcons as any)[iconName];
+                const IconComponent = HOTEL_ICON_MAP[iconName];
                 if (!IconComponent) return null;
                 
                 return (

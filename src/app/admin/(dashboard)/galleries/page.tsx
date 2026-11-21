@@ -1,11 +1,18 @@
 "use client";
 
-import { adminFetch } from '@/lib/admin-api';
+import { usePathname } from 'next/navigation';
+import { adminApi, adminFetch, adminLocation } from '@/lib/admin-api';
+import { resolveImageUrl } from '@/lib/api';
 import { useState, useEffect } from "react";
 import { Plus, Trash2, X, Upload, Check } from "lucide-react";
 import Image from "next/image";
 
 export default function GalleryManagementPage() {
+  const location = adminLocation(usePathname());
+  const api = adminApi(location);
+  const label = location === 'padang' ? 'Padang' : 'Painan';
+  const subtitleKey = location === 'padang' ? 'galleries_subtitle_padang' : 'galleries_subtitle';
+
   const [galleries, setGalleries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -20,11 +27,12 @@ export default function GalleryManagementPage() {
   const fetchGalleries = async () => {
     setIsLoading(true);
     try {
-      const res = await adminFetch("http://localhost:5000/api/galleries");
+      const res = await adminFetch(`${api}/api/galleries/manage`);
       const data = await res.json();
-      setGalleries(data);
+      setGalleries(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
+      setGalleries([]);
     } finally {
       setIsLoading(false);
     }
@@ -32,31 +40,44 @@ export default function GalleryManagementPage() {
 
   const fetchSettings = async () => {
     try {
-      const res = await adminFetch("http://localhost:5000/api/settings");
+      const res = await adminFetch(`${api}/api/settings?keys=${subtitleKey}`);
       const data = await res.json();
-      if (data.galleries_subtitle) setGalleriesSubtitle(data.galleries_subtitle);
+      if (data[subtitleKey]) setGalleriesSubtitle(data[subtitleKey]);
+      else setGalleriesSubtitle("");
     } catch (err) {
       console.error(err);
     }
   };
 
   useEffect(() => {
-    fetchGalleries();
-    fetchSettings();
-  }, []);
+    let active = true;
+    setIsLoading(true);
+    Promise.all([
+      adminFetch(`${api}/api/galleries/manage`).then((r) => r.json()).catch(() => []),
+      adminFetch(`${api}/api/settings?keys=${subtitleKey}`).then((r) => r.json()).catch(() => ({})),
+    ]).then(([galData, settingsData]) => {
+      if (!active) return;
+      setGalleries(Array.isArray(galData) ? galData : []);
+      setGalleriesSubtitle(settingsData?.[subtitleKey] || "");
+      setIsLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [api, subtitleKey]);
 
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
     try {
-      const res = await adminFetch("http://localhost:5000/api/settings", {
+      const res = await adminFetch(`${api}/api/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ galleries_subtitle: galleriesSubtitle })
+        body: JSON.stringify({ [subtitleKey]: galleriesSubtitle })
       });
       if (!res.ok) throw new Error();
       setAlertMessage("Subtitle halaman berhasil disimpan!");
       setTimeout(() => setAlertMessage(null), 3000);
-    } catch (err) {
+    } catch {
       setAlertMessage("Gagal menyimpan subtitle");
       setTimeout(() => setAlertMessage(null), 3000);
     } finally {
@@ -68,7 +89,7 @@ export default function GalleryManagementPage() {
     if (!confirm("Apakah Anda yakin ingin menghapus foto ini dari galeri?")) return;
     
     try {
-      const res = await adminFetch(`http://localhost:5000/api/galleries/${id}`, {
+      const res = await adminFetch(`${api}/api/galleries/${id}`, {
         method: "DELETE"
       });
       if (!res.ok) throw new Error("Gagal menghapus foto");
@@ -90,10 +111,11 @@ export default function GalleryManagementPage() {
     setIsSaving(true);
     try {
       const data = new FormData();
+      data.append("location", location);
       data.append("title", formData.title);
       data.append("image", selectedFile);
 
-      const res = await adminFetch("http://localhost:5000/api/galleries", {
+      const res = await adminFetch(`${api}/api/galleries`, {
         method: "POST",
         body: data,
       });
@@ -131,10 +153,10 @@ export default function GalleryManagementPage() {
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Manajemen Galeri</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Manajemen Galeri {label}</h2>
           <p className="text-sm text-gray-500">
-            Kelola foto-foto galeri hotel. {galleries.length} foto tersedia. 
-            (6 foto terbaru akan tampil di Beranda).
+            Kelola foto-foto galeri hotel cabang {label}. {galleries.length} foto tersedia. 
+            (6 foto terbaru akan tampil di Beranda {label}).
           </p>
         </div>
         <button 
@@ -160,7 +182,7 @@ export default function GalleryManagementPage() {
               value={galleriesSubtitle}
               onChange={(e) => setGalleriesSubtitle(e.target.value)}
               className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="Jelajahi keindahan dan kenyamanan yang ditawarkan oleh..."
+              placeholder={`Jelajahi keindahan dan kenyamanan yang ditawarkan oleh Hannah Hotel ${label}...`}
             />
             <button 
               onClick={handleSaveSettings}
@@ -177,14 +199,16 @@ export default function GalleryManagementPage() {
         <div className="text-center py-10">Memuat data galeri...</div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {galleries.map((img) => (
+          {galleries.map((img, index) => (
             <div key={img.id} className="group relative aspect-square rounded-xl overflow-hidden bg-gray-100 shadow-sm border border-gray-200">
               {img.imageUrl ? (
                 <Image 
-                  src={img.imageUrl.startsWith('http') ? img.imageUrl : `http://localhost:5000${img.imageUrl}`}
+                  src={resolveImageUrl(img.imageUrl)}
                   alt={img.title}
                   fill
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                  loading={index < 5 ? "eager" : "lazy"}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs">No Image</div>
@@ -202,7 +226,7 @@ export default function GalleryManagementPage() {
           ))}
           {galleries.length === 0 && (
             <div className="col-span-full py-12 text-center text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-              Belum ada foto di galeri. Klik tombol "Tambah Foto" untuk mulai mengunggah.
+              Belum ada foto di galeri {label}. Klik tombol &quot;Tambah Foto&quot; untuk mulai mengunggah.
             </div>
           )}
         </div>
@@ -213,7 +237,7 @@ export default function GalleryManagementPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl bg-white shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-              <h3 className="text-lg font-bold text-gray-900">Tambah Foto Galeri</h3>
+              <h3 className="text-lg font-bold text-gray-900">Tambah Foto Galeri {label}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <X size={20} />
               </button>

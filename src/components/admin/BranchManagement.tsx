@@ -5,11 +5,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { adminApi, adminFetch, adminLocation } from '@/lib/admin-api';
-import { branchImageUrl, type HotelBranch } from '@/lib/branches';
+import { resolveImageUrl } from '@/lib/api';
+import { type HotelBranch } from '@/lib/branches';
 
-export default function BranchManagement() {
+export default function BranchManagement({ initialBranch = null }: { initialBranch?: HotelBranch | null }) {
   const location = adminLocation(usePathname());
-  const [branch, setBranch] = useState<HotelBranch | null>(null);
+  const [branch, setBranch] = useState<HotelBranch | null>(initialBranch);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState('');
   const previewRef = useRef('');
@@ -19,6 +20,10 @@ export default function BranchManagement() {
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
+    if (initialBranch && initialBranch.id === location && version === 0) {
+      setBranch(initialBranch);
+      return;
+    }
     let active = true;
     adminFetch(`${adminApi(location)}/api/branches`).then(async response => {
       if (!response.ok) throw new Error('Gagal memuat informasi cabang');
@@ -28,7 +33,7 @@ export default function BranchManagement() {
       if (active) { setBranch(own); setFailed(false); setMessage(''); }
     }).catch(error => { if (active) { setFailed(true); setMessage(error.message); } });
     return () => { active = false; };
-  }, [location, version]);
+  }, [location, version, initialBranch]);
 
   useEffect(() => () => {
     if (previewRef.current) URL.revokeObjectURL(previewRef.current);
@@ -59,7 +64,7 @@ export default function BranchManagement() {
     finally { setSaving(false); }
   }
 
-  const image = preview || (branch?.imageUrl ? branchImageUrl(branch.imageUrl) : '');
+  const image = preview || (branch?.imageUrl ? resolveImageUrl(branch.imageUrl) : '');
   const inputClass = 'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none';
   return (
     <section id="branch-info" className="scroll-mt-24 rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
@@ -82,8 +87,8 @@ export default function BranchManagement() {
             <button type="submit" className="rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">{saving ? 'Menyimpan...' : 'Simpan Informasi Cabang'}</button>
           </fieldset>
           <div><p className="mb-3 text-sm font-semibold text-gray-600">Pratinjau Kartu</p><article className="overflow-hidden rounded-lg border border-gray-200 bg-cream">
-            <div className="relative h-60 bg-mint/20">{image ? <Image src={image} alt={branch.title} fill className="object-cover" /> : <div className="flex h-full items-center justify-center text-secondary">Belum ada gambar cabang</div>}</div>
-            <div className="p-6"><h3 className="font-display text-2xl font-semibold text-primary">{branch.title}</h3><p className="mt-3 whitespace-pre-line text-secondary">{branch.description}</p><p className="mt-4 whitespace-pre-line text-sm font-semibold text-primary">{branch.location}</p><Link href={`/rooms/${branch.id}`} className="mt-6 block rounded border border-primary p-3 text-center text-sm font-bold text-primary">Lihat Detail</Link></div>
+            <div className="relative h-60 bg-mint/20">{image ? <Image src={image} alt={branch.title} fill sizes="(max-width: 1024px) 100vw, 50vw" priority className="object-cover" /> : <div className="flex h-full items-center justify-center text-secondary">Belum ada gambar cabang</div>}</div>
+            <div className="p-6"><h3 className="font-display text-2xl font-semibold text-primary">{branch.title}</h3><p className="mt-3 whitespace-pre-line text-secondary">{branch.description}</p><p className="mt-4 whitespace-pre-line text-sm font-semibold text-primary">{branch.location}</p><Link href={`/${branch.id}`} className="mt-6 block rounded border border-primary p-3 text-center text-sm font-bold text-primary">Lihat Profil Cabang</Link></div>
           </article></div>
         </form>
       )}

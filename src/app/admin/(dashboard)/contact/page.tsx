@@ -31,7 +31,8 @@ export default function ContactManagementPage() {
   useEffect(() => {
     async function load() {
       try {
-        const response = await adminFetch(`${api}/api/settings`, { cache: 'no-store' })
+        const keys = visibleGroups.flatMap(group => group.fields.map(([key]) => contactSettingKey(key, location))).join(',')
+        const response = await adminFetch(`${api}/api/settings?keys=${keys}`, { cache: 'no-store' })
         if (!response.ok) throw new Error()
         const loaded = getBranchContactSettings(await response.json(), location)
         setSettings(loaded)

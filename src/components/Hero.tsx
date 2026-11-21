@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import heroImageDefault from '../assets/hotel-hero.jpg'
+import { resolveImageUrl } from '@/lib/api'
+
 interface HeroProps {
   title?: string;
   subtitle?: string;
@@ -10,10 +11,8 @@ interface HeroProps {
 export default function Hero({ title, subtitle, heroImage }: HeroProps) {
   return (
     <section id="home" className="relative isolate flex h-[83vh] min-h-[500px] lg:min-h-[550px] w-full items-center justify-center overflow-hidden bg-primary px-5 text-center">
-      {heroImage ? (
-        <Image src={heroImage.startsWith('http') || heroImage.startsWith('/') ? (heroImage.startsWith('/uploads') ? `http://localhost:5000${heroImage}` : heroImage) : heroImage} alt="Suasana nyaman Hannah Hotel" fill className="absolute inset-0 -z-20 object-cover" priority />
-      ) : (
-        <Image src={heroImageDefault} alt="Suasana nyaman Hannah Hotel" fill className="absolute inset-0 -z-20 object-cover" priority />
+      {heroImage && (
+        <Image src={resolveImageUrl(heroImage)} alt="Suasana nyaman Hannah Hotel" fill sizes="100vw" className="absolute inset-0 -z-20 object-cover" priority />
       )}
       <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(0,55,27,.88),rgba(0,82,42,.68),rgba(0,55,27,.88))]" />
 

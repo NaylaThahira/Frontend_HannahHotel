@@ -6,27 +6,32 @@ import { MapPin, Trash2 } from 'lucide-react';
 import { adminApi, adminFetch, adminLocation } from '@/lib/admin-api';
 import { attractionsKey, defaultPainanAttractions, parseAttractions } from '@/lib/attractions';
 
-export default function AttractionsManagement() {
+export default function AttractionsManagement({ initialItems = null }: { initialItems?: string[] | null }) {
   const location = adminLocation(usePathname());
   const label = location === 'padang' ? 'Padang' : 'Painan';
-  const [items, setItems] = useState<string[] | null>(null);
+  const [items, setItems] = useState<string[] | null>(initialItems);
   const [newItem, setNewItem] = useState('');
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
+    if (initialItems !== null && version === 0) {
+      setItems(initialItems);
+      return;
+    }
     let active = true;
-    adminFetch(`${adminApi(location)}/api/settings`).then(async response => {
+    const key = attractionsKey(location);
+    adminFetch(`${adminApi(location)}/api/settings?keys=${key}`).then(async response => {
       if (!response.ok) throw new Error('Gagal memuat area akomodasi');
       const settings = await response.json();
       if (active) {
-        setItems(parseAttractions(settings[attractionsKey(location)], location === 'painan' ? defaultPainanAttractions : []));
+        setItems(parseAttractions(settings[key], location === 'painan' ? defaultPainanAttractions : []));
         setMessage('');
       }
     }).catch(error => { if (active) setMessage(error.message); });
     return () => { active = false; };
-  }, [location, version]);
+  }, [location, version, initialItems]);
 
   function add() {
     const value = newItem.trim();

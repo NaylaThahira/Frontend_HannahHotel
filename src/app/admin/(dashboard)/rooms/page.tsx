@@ -2,10 +2,11 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { adminFetch, adminLocation, adminApi } from '@/lib/admin-api';
+import { API_URL, resolveImageUrl } from '@/lib/api';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, X, Upload, Check } from "lucide-react";
-import * as LucideIcons from 'lucide-react';
+import { getHotelIcon } from '@/lib/hotel-icons';
 import Image from "next/image";
 import IconPicker from "@/components/IconPicker";
 
@@ -68,7 +69,7 @@ export default function RoomManagementPage() {
 
   const fetchSettings = async () => {
     try {
-      const res = await adminFetch(`${api}/api/settings`);
+      const res = await adminFetch(`${api}/api/settings?keys=${subtitleKey}`);
       const data = await res.json();
       setRoomsSubtitle(data[subtitleKey] || "");
     } catch (error) {
@@ -77,9 +78,26 @@ export default function RoomManagementPage() {
   };
 
   useEffect(() => {
-    void fetchRooms();
-    void fetchSettings();
-  }, []);
+    let active = true;
+    setIsLoading(true);
+    Promise.all([
+      adminFetch(`${api}/api/rooms/manage`).then((r) => r.json()).catch(() => []),
+      adminFetch(`${api}/api/settings?keys=${subtitleKey}`).then((r) => r.json()).catch(() => ({})),
+    ]).then(([roomData, settingsData]) => {
+      if (!active) return;
+      const normalizedRooms = Array.isArray(roomData)
+        ? roomData
+        : Array.isArray((roomData as { rooms?: RoomItem[] })?.rooms)
+          ? (roomData as { rooms: RoomItem[] }).rooms
+          : [];
+      setRooms(normalizedRooms);
+      setRoomsSubtitle(settingsData?.[subtitleKey] || "");
+      setIsLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [api, subtitleKey]);
 
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
@@ -131,7 +149,7 @@ export default function RoomManagementPage() {
       const existingDetailImages = Array.isArray(room.detailImageUrls) ? room.detailImageUrls : [];
       setDetailPreviewUrls(existingDetailImages.map((url: string, index: number) => ({
         id: `existing-${index}`,
-        url: url.startsWith('http') || url.startsWith('/') ? (url.startsWith('/assets') ? url : `http://localhost:5000${url}`) : url,
+        url: resolveImageUrl(url),
         kind: 'existing'
       })));
       setDetailFiles([]);
@@ -178,7 +196,7 @@ export default function RoomManagementPage() {
 
       const remainingExistingDetailUrls = detailPreviewUrls
         .filter((detail) => detail.kind === 'existing')
-        .map((detail) => detail.url.replace('http://localhost:5000', ''));
+        .map((detail) => detail.url.replace(API_URL, ''));
 
       if (editingRoom && remainingExistingDetailUrls.length > 0) {
         data.append("detailImageUrls", JSON.stringify(remainingExistingDetailUrls.slice(0, 4)));
@@ -396,10 +414,11 @@ export default function RoomManagementPage() {
                     <div className="relative h-16 w-24 overflow-hidden rounded-md border border-gray-200 bg-gray-100 flex items-center justify-center">
                       {room.imageUrl ? (
                         <Image
-                          src={room.imageUrl.startsWith('http') || room.imageUrl.startsWith('/') ? (room.imageUrl.startsWith('/assets') ? room.imageUrl : `http://localhost:5000${room.imageUrl}`) : room.imageUrl}
+                          src={resolveImageUrl(room.imageUrl)}
                           alt={room.name}
                           fill
                           className="object-cover transition-transform duration-700 group-hover:scale-105"
+                          sizes="96px"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500 text-[10px]">No Image</div>
@@ -537,7 +556,7 @@ export default function RoomManagementPage() {
                       </thead>
                       <tbody className="divide-y divide-gray-200 bg-white">
                         {formData.facilities.map((fac, idx) => {
-                          const IconComp = (LucideIcons as unknown as Record<string, typeof Check>)[fac.icon] || Check;
+                          const IconComp = getHotelIcon(fac.icon);
                           return (
                             <tr key={idx} className="hover:bg-gray-50">
                               <td className="px-4 py-2"><IconComp size={20} className="text-orange drop-shadow-sm" /></td>
@@ -571,14 +590,15 @@ export default function RoomManagementPage() {
 
                   {previewUrl ? (
                     <div className="mt-4 relative h-32 w-48 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
-                      <Image src={previewUrl} alt="Preview Foto Baru" fill className="object-cover" />
+                      <Image src={previewUrl} alt="Preview Foto Baru" fill sizes="192px" className="object-cover" />
                       <div className="absolute top-2 left-2 bg-primary/90 px-2 py-1 rounded text-xs font-medium text-white backdrop-blur-sm">Foto Baru</div>
                     </div>
                   ) : editingRoom && editingRoom.imageUrl ? (
                     <div className="mt-4 relative h-32 w-48 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
                       <Image
-                        src={editingRoom.imageUrl.startsWith('http') || editingRoom.imageUrl.startsWith('/') ? (editingRoom.imageUrl.startsWith('/assets') ? editingRoom.imageUrl : `http://localhost:5000${editingRoom.imageUrl}`) : editingRoom.imageUrl}
+                        src={resolveImageUrl(editingRoom.imageUrl)}
                         alt="Preview Foto Lama"
+                        sizes="192px"
                         fill
                         className="object-cover"
                       />
@@ -631,7 +651,7 @@ export default function RoomManagementPage() {
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                     {detailPreviewUrls.map((detail, idx) => (
                       <div key={detail.id} className="relative h-28 overflow-hidden rounded-lg border border-gray-200 shadow-sm">
-                        <Image src={detail.url} alt={`Foto detail ${idx + 1}`} fill className="object-cover" />
+                        <Image src={detail.url} alt={`Foto detail ${idx + 1}`} fill sizes="160px" className="object-cover" />
                         <button
                           type="button"
                           className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white shadow-sm transition hover:bg-red-700"

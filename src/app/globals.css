@@ -1,7 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "maplibre-gl/dist/maplibre-gl.css";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
@@ -40,8 +38,92 @@
 }
 
 html {
-  scroll-behavior: smooth;
   overflow-x: hidden;
+}
+
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+@keyframes heroTitleReveal {
+  0% {
+    opacity: 0.2;
+    transform: translateY(16px) scale(0.98);
+    filter: blur(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* Anti-flash shield while navigating from Portal (/) into a branch (/padang or /painan) */
+html[data-branch-entering] {
+  background: #07170f !important;
+}
+
+html[data-branch-entering] body {
+  background: linear-gradient(180deg, #07170f 0%, #002814 50%, #07170f 100%) !important;
+}
+
+html[data-branch-entering] header,
+html[data-branch-entering] main,
+html[data-branch-entering] footer {
+  visibility: hidden !important;
+}
+
+/* Pure GPU CSS keyframes for AnimatedHannahLogo (zero framer-motion runtime in PublicLayout) */
+@keyframes hannahStrokeDraw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes hannahFillReveal {
+  from {
+    fill-opacity: 0;
+  }
+  to {
+    fill-opacity: 1;
+  }
+}
+
+@keyframes hannahOpacityIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes hannahLetterRise24 {
+  from {
+    transform: translateY(24px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes hannahLetterRise16 {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 body {

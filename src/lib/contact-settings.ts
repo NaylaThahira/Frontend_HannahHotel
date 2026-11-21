@@ -27,35 +27,6 @@ export const contactDefaults = {
 
 export type ContactSettings = typeof contactDefaults
 
-export const MAX_CONTACT_FIELDS = 5
-export const contactFieldTypes = ['text', 'email', 'tel', 'textarea', 'number', 'date'] as const
-export type ContactField = {
-  id: string
-  label: string
-  type: typeof contactFieldTypes[number]
-  placeholder: string
-  required: boolean
-}
-
-export function getContactFields(settings: ContactSettings): ContactField[] {
-  if (settings.contact_fields_json) {
-    try {
-      const fields: unknown = JSON.parse(settings.contact_fields_json)
-      if (Array.isArray(fields) && fields.length <= MAX_CONTACT_FIELDS && fields.every(field =>
-        field && typeof field.id === 'string' && field.id.trim() &&
-        typeof field.label === 'string' && field.label.trim() &&
-        contactFieldTypes.includes(field.type) && typeof field.placeholder === 'string' && typeof field.required === 'boolean'
-      ) && new Set(fields.map(field => field.id)).size === fields.length) return fields
-    } catch { /* Use the existing form when saved data is invalid. */ }
-  }
-  return [
-    { id: 'full-name', label: settings.contact_name_label, type: 'text', placeholder: settings.contact_name_placeholder, required: true },
-    { id: 'email', label: settings.contact_email_label, type: 'email', placeholder: settings.contact_email_placeholder, required: true },
-    { id: 'phone', label: settings.contact_phone_label, type: 'tel', placeholder: settings.contact_phone_placeholder, required: true },
-    { id: 'message', label: settings.contact_message_label, type: 'textarea', placeholder: settings.contact_message_placeholder, required: true },
-  ]
-}
-
 export function getContactSettings(data: Record<string, unknown>, defaults: ContactSettings = contactDefaults): ContactSettings {
   const settings = { ...defaults }
   for (const key of Object.keys(settings) as (keyof ContactSettings)[]) {

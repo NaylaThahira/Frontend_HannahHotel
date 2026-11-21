@@ -1,21 +1,40 @@
 import { headers } from 'next/headers';
-import Link from 'next/link';
 import { Users, BedDouble } from "lucide-react";
-import AttractionsManagement from '@/components/admin/AttractionsManagement';
 import BranchManagement from '@/components/admin/BranchManagement';
 import HomeManagement from "@/components/admin/HomeManagement";
+import { SERVER_API_URL } from '@/lib/api';
+import type { HotelBranch } from '@/lib/branches';
 
 export default async function AdminDashboardPage() {
   const location = (await headers()).get('x-hotel-location') === 'padang' ? 'padang' : 'painan';
+  const settingsKeys = location === 'painan'
+    ? 'home_hero_title,home_hero_subtitle,home_hero_image,home_whatsapp_number,home_review_url,home_sections_order,tourist_attractions_json'
+    : 'home_hero_title_padang,home_hero_subtitle_padang,home_hero_image_padang,home_whatsapp_number_padang,home_review_url_padang,home_sections_order_padang,tourist_attractions_padang_json';
+
   let roomTypesCount = "0";
+  let ownBranch: HotelBranch | null = null;
+  let settings: Record<string, string> | undefined = undefined;
+
   try {
-    const res = await fetch(`http://localhost:5000/api/rooms?location=${location}`, { cache: "no-store" });
-    if (res.ok) {
-      const rooms = await res.json();
-      roomTypesCount = rooms.length.toString();
+    const [countRes, branchesRes, settingsRes] = await Promise.all([
+      fetch(`${SERVER_API_URL}/api/rooms/count?location=${location}`, { cache: "no-store" }),
+      fetch(`${SERVER_API_URL}/api/branches`, { cache: "no-store" }),
+      fetch(`${SERVER_API_URL}/api/settings?keys=${settingsKeys}`, { cache: "no-store" }),
+    ]);
+
+    if (countRes.ok) {
+      const data = await countRes.json();
+      roomTypesCount = typeof data.count === 'number' ? data.count.toString() : "0";
+    }
+    if (branchesRes.ok) {
+      const branches: HotelBranch[] = await branchesRes.json();
+      ownBranch = branches.find(item => item.id === location) || null;
+    }
+    if (settingsRes.ok) {
+      settings = await settingsRes.json();
     }
   } catch (error) {
-    console.error("Failed to fetch rooms:", error);
+    console.error("Failed to fetch admin dashboard data:", error);
   }
 
   // Dummy data
@@ -74,9 +93,9 @@ export default async function AdminDashboardPage() {
         </div>
       </div>
 
-      <BranchManagement />
+      <BranchManagement initialBranch={ownBranch} />
       <div className="border-t border-gray-200 pt-8 mt-8">
-        {location === 'painan' ? <HomeManagement /> : <><AttractionsManagement /><Link href="/adminPadang/rooms" className="inline-flex rounded-lg bg-primary px-6 py-3 font-semibold text-white">Manajemen Kamar Padang</Link></>}
+        <HomeManagement initialSettings={settings} />
       </div>
     </div>
   );

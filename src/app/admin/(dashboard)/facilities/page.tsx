@@ -3,9 +3,10 @@
 import BranchLocationField from '@/components/BranchLocationField';
 import { usePathname } from 'next/navigation';
 import { adminApi, adminLocation, adminFetch } from '@/lib/admin-api';
+import { resolveImageUrl } from '@/lib/api';
 import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, X, Check, Upload } from "lucide-react";
-import * as LucideIcons from 'lucide-react';
+import { getHotelIcon } from '@/lib/hotel-icons';
 import Image from "next/image";
 import IconPicker from "@/components/IconPicker";
 
@@ -50,7 +51,7 @@ export default function FacilityManagementPage() {
 
   const fetchSettings = async () => {
     try {
-      const res = await adminFetch(`${api}/api/settings`);
+      const res = await adminFetch(`${api}/api/settings?keys=${subtitleKey}`);
       const data = await res.json();
       if (data[subtitleKey]) setFacilitiesSubtitle(data[subtitleKey]);
     } catch (err) {
@@ -59,9 +60,21 @@ export default function FacilityManagementPage() {
   };
 
   useEffect(() => {
-    fetchFacilities();
-    fetchSettings();
-  }, []);
+    let active = true;
+    setIsLoading(true);
+    Promise.all([
+      adminFetch(`${api}/api/facilities/manage`).then((r) => r.json()).catch(() => []),
+      adminFetch(`${api}/api/settings?keys=${subtitleKey}`).then((r) => r.json()).catch(() => ({})),
+    ]).then(([facData, settingsData]) => {
+      if (!active) return;
+      setFacilities(Array.isArray(facData) ? facData : []);
+      if (settingsData?.[subtitleKey]) setFacilitiesSubtitle(settingsData[subtitleKey]);
+      setIsLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [api, subtitleKey]);
 
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
@@ -118,7 +131,7 @@ export default function FacilityManagementPage() {
       const method = editingFacility ? "PUT" : "POST";
 
       const data = new FormData();
-      data.append("location", formData.location); data.append("name", formData.name); data.append("description", formData.description); data.append("icon", formData.icon); data.append("price", formData.price); data.append("facilities", JSON.stringify(formData.facilities));
+      data.append("location", location); data.append("name", formData.name); data.append("description", formData.description); data.append("icon", formData.icon); data.append("price", formData.price); data.append("facilities", JSON.stringify(formData.facilities));
       if (selectedFile) data.append("image", selectedFile);
       const res = await adminFetch(url, { method, body: data });
 
@@ -234,11 +247,11 @@ export default function FacilityManagementPage() {
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {facilities.map((fac) => {
-                const IconComp = (LucideIcons as any)[fac.icon] || Check;
+                const IconComp = getHotelIcon(fac.icon);
                 return (
                 <tr key={fac.id} className="hover:bg-gray-50">
                   <td className="whitespace-nowrap px-6 py-4">
-                    <div className="relative flex h-14 w-20 items-center justify-center overflow-hidden rounded-md bg-[#e8f5ee] text-[#1e6b3e]">{fac.imageUrl ? <Image src={fac.imageUrl.startsWith('http') ? fac.imageUrl : `http://localhost:5000${fac.imageUrl}`} alt={fac.name} fill className="object-cover" /> : <IconComp size={24} />}</div>
+                    <div className="relative flex h-14 w-20 items-center justify-center overflow-hidden rounded-md bg-[#e8f5ee] text-[#1e6b3e]">{fac.imageUrl ? <Image src={resolveImageUrl(fac.imageUrl)} alt={fac.name} fill sizes="80px" className="object-cover" /> : <IconComp size={24} />}</div>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <div className="text-sm font-medium text-gray-900">{fac.name}</div>
@@ -293,9 +306,9 @@ export default function FacilityManagementPage() {
                 <div className="space-y-2"><label className="block text-sm font-medium text-gray-700">Harga</label><input type="text" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" placeholder="Contoh: Rp50.000 / jam" /></div>
                 <div className="space-y-2"><label className="block text-sm font-medium text-gray-700">Foto Fasilitas</label><label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"><Upload size={18} /> Unggah gambar<input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => { const file = e.target.files?.[0] || null; setSelectedFile(file); if (file) { if (previewUrl) URL.revokeObjectURL(previewUrl); setPreviewUrl(URL.createObjectURL(file)); } }} /></label></div>
               </div>
-              {(previewUrl || editingFacility?.imageUrl) && <div className="relative h-36 w-56 overflow-hidden rounded-md border"><Image src={previewUrl || (editingFacility.imageUrl.startsWith('http') ? editingFacility.imageUrl : `http://localhost:5000${editingFacility.imageUrl}`)} alt="Pratinjau fasilitas" fill className="object-cover" /></div>}
+              {(previewUrl || editingFacility?.imageUrl) && <div className="relative h-36 w-56 overflow-hidden rounded-md border"><Image src={previewUrl || resolveImageUrl(editingFacility.imageUrl)} alt="Pratinjau fasilitas" fill sizes="224px" className="object-cover" /></div>}
 
-              <div className="space-y-2"><label className="block text-sm font-medium text-gray-700">Detail Fasilitas</label><div className="flex gap-2"><div className="w-40"><IconPicker value={newItemIcon} onChange={setNewItemIcon} /></div><input type="text" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDetail(); } }} className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm" placeholder="Contoh: WiFi gratis" /><button type="button" onClick={addDetail} className="rounded-md border border-primary px-3 text-sm font-medium text-primary hover:bg-primary hover:text-white">Tambah</button></div>{formData.facilities.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{formData.facilities.map((item, index) => { const ItemIcon = (LucideIcons as any)[item.icon] || Check; return <span key={`${item.name}-${index}`} className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-xs"><ItemIcon size={14} />{item.name}<button type="button" onClick={() => setFormData({...formData, facilities: formData.facilities.filter((_, i) => i !== index)})} className="ml-1 text-red-500"><X size={14} /></button></span> })}</div>}</div>
+              <div className="space-y-2"><label className="block text-sm font-medium text-gray-700">Detail Fasilitas</label><div className="flex gap-2"><div className="w-40"><IconPicker value={newItemIcon} onChange={setNewItemIcon} /></div><input type="text" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDetail(); } }} className="min-w-0 flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm" placeholder="Contoh: WiFi gratis" /><button type="button" onClick={addDetail} className="rounded-md border border-primary px-3 text-sm font-medium text-primary hover:bg-primary hover:text-white">Tambah</button></div>{formData.facilities.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{formData.facilities.map((item, index) => { const ItemIcon = getHotelIcon(item.icon); return <span key={`${item.name}-${index}`} className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1.5 text-xs"><ItemIcon size={14} />{item.name}<button type="button" onClick={() => setFormData({...formData, facilities: formData.facilities.filter((_, i) => i !== index)})} className="ml-1 text-red-500"><X size={14} /></button></span> })}</div>}</div>
 
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">Nama Fasilitas</label>

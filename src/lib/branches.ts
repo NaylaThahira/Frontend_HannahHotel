@@ -12,6 +12,6 @@ export const defaultBranches: HotelBranch[] = ['padang', 'painan'].map(id => {
     description: `Nikmati kenyamanan menginap di Hannah Hotel ${label}. Temukan pilihan kamar yang sesuai untuk Anda.`, location: label };
 });
 
-export function branchImageUrl(url: string) {
-  return url.startsWith('/uploads/') ? `http://localhost:5000${url}` : url;
+export function isValidBranch(value: string): value is 'padang' | 'painan' {
+  return value === 'padang' || value === 'painan';
 }

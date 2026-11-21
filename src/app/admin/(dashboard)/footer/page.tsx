@@ -1,6 +1,7 @@
 "use client";
 
-import { adminFetch } from '@/lib/admin-api';
+import { usePathname } from 'next/navigation';
+import { adminApi, adminFetch, adminLocation } from '@/lib/admin-api';
 import { useState, useEffect } from "react";
 import { Check, FileText, MapPin, Phone, Mail, Link as LinkIcon, Plus, Trash2, ChevronDown, Home, Bed, Image as ImageIcon, Coffee, Info } from "lucide-react";
 
@@ -14,6 +15,18 @@ const URL_OPTIONS = [
 ];
 
 export default function FooterSettingsPage() {
+  const location = adminLocation(usePathname());
+  const api = adminApi(location);
+  const label = location === 'padang' ? 'Padang' : 'Painan';
+  const suffix = location === 'padang' ? '_padang' : '';
+
+  const aboutKey = `footer_about${suffix}`;
+  const addressKey = `footer_address${suffix}`;
+  const phoneKey = `footer_phone${suffix}`;
+  const emailKey = `footer_email${suffix}`;
+  const linksKey = `footer_links${suffix}`;
+  const newsletterKey = `footer_show_newsletter${suffix}`;
+
   const [formData, setFormData] = useState({
     footer_about: "",
     footer_address: "",
@@ -22,7 +35,7 @@ export default function FooterSettingsPage() {
     footer_links: [
       { label: "Beranda", url: "/" },
       { label: "Katalog Kamar", url: "/rooms" },
-      { label: "Fasilitas", url: "/#facilities" },
+      { label: "Fasilitas", url: "/facilities" },
       { label: "Tentang Kami", url: "/#about" }
     ],
     footer_show_newsletter: true
@@ -35,25 +48,31 @@ export default function FooterSettingsPage() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await adminFetch("http://localhost:5000/api/settings");
+        const keys = [
+          aboutKey, addressKey, phoneKey, emailKey, linksKey, newsletterKey,
+          'footer_about', 'footer_address', 'footer_phone', 'footer_email', 'footer_links', 'footer_show_newsletter'
+        ].join(',');
+        const res = await adminFetch(`${api}/api/settings?keys=${keys}`);
         const data = await res.json();
 
         let parsedLinks = formData.footer_links;
-        if (data.footer_links) {
+        const rawLinks = data[linksKey] ?? data.footer_links;
+        if (rawLinks) {
           try {
-            parsedLinks = JSON.parse(data.footer_links);
+            parsedLinks = JSON.parse(rawLinks);
           } catch (e) {
             console.error("Failed to parse footer links");
           }
         }
 
+        const rawNewsletter = data[newsletterKey] ?? data.footer_show_newsletter;
         setFormData({
-          footer_about: data.footer_about || "",
-          footer_address: data.footer_address || "",
-          footer_phone: data.footer_phone || "",
-          footer_email: data.footer_email || "",
+          footer_about: data[aboutKey] ?? data.footer_about ?? "",
+          footer_address: data[addressKey] ?? (location === 'padang' ? "" : data.footer_address ?? ""),
+          footer_phone: data[phoneKey] ?? (location === 'padang' ? "" : data.footer_phone ?? ""),
+          footer_email: data[emailKey] ?? data.footer_email ?? "",
           footer_links: parsedLinks,
-          footer_show_newsletter: data.footer_show_newsletter === "false" ? false : true
+          footer_show_newsletter: rawNewsletter === "false" ? false : true
         });
       } catch (err) {
         console.error(err);
@@ -62,7 +81,7 @@ export default function FooterSettingsPage() {
       }
     };
     fetchSettings();
-  }, []);
+  }, [api, location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,12 +89,15 @@ export default function FooterSettingsPage() {
 
     try {
       const dataToSend = {
-        ...formData,
-        footer_links: JSON.stringify(formData.footer_links),
-        footer_show_newsletter: formData.footer_show_newsletter.toString()
+        [aboutKey]: formData.footer_about,
+        [addressKey]: formData.footer_address,
+        [phoneKey]: formData.footer_phone,
+        [emailKey]: formData.footer_email,
+        [linksKey]: JSON.stringify(formData.footer_links),
+        [newsletterKey]: formData.footer_show_newsletter.toString()
       };
 
-      const res = await adminFetch("http://localhost:5000/api/settings", {
+      const res = await adminFetch(`${api}/api/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dataToSend)
@@ -118,9 +140,9 @@ export default function FooterSettingsPage() {
     <div className="mx-auto max-w-4xl space-y-8">
       {/* Header Section */}
       <div className="flex flex-col gap-2 border-b border-gray-100 pb-6">
-        <h2 className="text-3xl font-display font-bold text-primary">Pengaturan Footer</h2>
+        <h2 className="text-3xl font-display font-bold text-primary">Pengaturan Footer {label}</h2>
         <p className="text-gray-500">
-          Kelola informasi kontak dan teks yang akan ditampilkan pada bagian bawah (footer) website pengunjung.
+          Kelola informasi kontak dan teks yang akan ditampilkan pada bagian bawah (footer) website cabang {label}.
         </p>
       </div>
 
@@ -143,7 +165,7 @@ export default function FooterSettingsPage() {
                   onChange={(e) => setFormData({ ...formData, footer_about: e.target.value })}
                   required
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-mint focus:outline-none focus:ring-2 focus:ring-mint/20 transition-all"
-                  placeholder="Kenyamanan Islami di jantung Kota Painan..."
+                  placeholder={`Kenyamanan Islami di jantung Kota ${label}...`}
                 />
               </div>
             </div>
@@ -279,7 +301,7 @@ export default function FooterSettingsPage() {
                     onChange={(e) => setFormData({ ...formData, footer_address: e.target.value })}
                     required
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-mint focus:outline-none focus:ring-2 focus:ring-mint/20 transition-all"
-                    placeholder="Jl. Ilyas Yakub, Painan"
+                    placeholder={location === 'padang' ? "Jl. ..., Padang" : "Jl. Ilyas Yakub, Painan"}
                   />
                 </div>
 

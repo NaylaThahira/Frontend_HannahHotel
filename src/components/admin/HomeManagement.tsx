@@ -1,7 +1,10 @@
 "use client";
 
-import { adminFetch } from '@/lib/admin-api';
-import { useState, useEffect, useRef } from "react";
+import { adminApi, adminFetch, adminLocation } from '@/lib/admin-api';
+import { resolveImageUrl } from '@/lib/api';
+import { attractionsKey, defaultPainanAttractions, parseAttractions } from '@/lib/attractions';
+import { useState, useEffect, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { Check, X, Upload, GripVertical, Image as ImageIcon, AlignLeft, MapPin } from "lucide-react";
 import Image from "next/image";
 import AttractionsManagement from './AttractionsManagement';
@@ -17,49 +20,70 @@ const DEFAULT_SECTIONS = [
   { id: 'gallery', label: 'Galeri Foto' }
 ];
 
-export default function HomeManagementPage() {
+function parseInitialOrder(raw?: string): string[] {
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  return DEFAULT_SECTIONS.map(s => s.id);
+}
+
+export default function HomeManagementPage({ initialSettings }: { initialSettings?: Record<string, string> }) {
+  const pathname = usePathname();
+  const location = adminLocation(pathname);
+  const isPadang = location === 'padang';
+
+  const heroTitleKey = isPadang ? 'home_hero_title_padang' : 'home_hero_title';
+  const heroSubtitleKey = isPadang ? 'home_hero_subtitle_padang' : 'home_hero_subtitle';
+  const heroImageKey = isPadang ? 'home_hero_image_padang' : 'home_hero_image';
+  const whatsappKey = isPadang ? 'home_whatsapp_number_padang' : 'home_whatsapp_number';
+  const reviewUrlKey = isPadang ? 'home_review_url_padang' : 'home_review_url';
+  const sectionsOrderKey = isPadang ? 'home_sections_order_padang' : 'home_sections_order';
+  const currentAttractionsKey = attractionsKey(location);
+
   const [activeTab, setActiveTab] = useState<Tab>('hero');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!initialSettings);
   const [isSaving, setIsSaving] = useState(false);
   const [alertMessage, setAlertMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
-  // Hero State
-  const [heroTitle, setHeroTitle] = useState("");
-  const [heroSubtitle, setHeroSubtitle] = useState("");
-  const [heroImage, setHeroImage] = useState("");
+  // Hero & Floating Actions State
+  const [heroTitle, setHeroTitle] = useState(initialSettings?.[heroTitleKey] || "");
+  const [heroSubtitle, setHeroSubtitle] = useState(initialSettings?.[heroSubtitleKey] || "");
+  const [heroImage, setHeroImage] = useState(initialSettings?.[heroImageKey] || "");
+  const [whatsappNumber, setWhatsappNumber] = useState(initialSettings?.[whatsappKey] || "");
+  const [reviewUrl, setReviewUrl] = useState(initialSettings?.[reviewUrlKey] || "");
   const [selectedHeroFile, setSelectedHeroFile] = useState<File | null>(null);
 
   // Order State
-  const [sectionsOrder, setSectionsOrder] = useState<string[]>([]);
+  const [sectionsOrder, setSectionsOrder] = useState<string[]>(() => parseInitialOrder(initialSettings?.[sectionsOrderKey]));
 
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await adminFetch("http://localhost:5000/api/settings");
+      const keys = [heroTitleKey, heroSubtitleKey, heroImageKey, whatsappKey, reviewUrlKey, sectionsOrderKey, currentAttractionsKey].join(',');
+      const res = await adminFetch(`${adminApi(location)}/api/settings?keys=${keys}`);
       const data = await res.json();
       
-      setHeroTitle(data.home_hero_title || "");
-      setHeroSubtitle(data.home_hero_subtitle || "");
-      setHeroImage(data.home_hero_image || "");
-
-      if (data.home_sections_order) {
-        try {
-          setSectionsOrder(JSON.parse(data.home_sections_order));
-        } catch(e) {}
-      } else {
-        setSectionsOrder(DEFAULT_SECTIONS.map(s => s.id));
-      }
-
+      setHeroTitle(data[heroTitleKey] || "");
+      setHeroSubtitle(data[heroSubtitleKey] || "");
+      setHeroImage(data[heroImageKey] || "");
+      setWhatsappNumber(data[whatsappKey] || "");
+      setReviewUrl(data[reviewUrlKey] || "");
+      setSectionsOrder(parseInitialOrder(data[sectionsOrderKey]));
     } catch (err) {
       console.error(err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [location, heroTitleKey, heroSubtitleKey, heroImageKey, whatsappKey, reviewUrlKey, sectionsOrderKey, currentAttractionsKey]);
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
+    if (!initialSettings) {
+      fetchSettings();
+    }
+  }, [initialSettings, fetchSettings]);
 
   const showAlert = (type: 'success'|'error', text: string) => {
     setAlertMessage({type, text});
@@ -69,17 +93,17 @@ export default function HomeManagementPage() {
   const handleSaveHeroText = async () => {
     setIsSaving(true);
     try {
-      const res = await adminFetch("http://localhost:5000/api/settings", {
+      const res = await adminFetch(`${adminApi(location)}/api/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          home_hero_title: heroTitle,
-          home_hero_subtitle: heroSubtitle
+          [heroTitleKey]: heroTitle,
+          [heroSubtitleKey]: heroSubtitle
         })
       });
       if (!res.ok) throw new Error();
       showAlert('success', 'Teks Hero berhasil disimpan!');
-    } catch (err) {
+    } catch {
       showAlert('error', 'Gagal menyimpan teks Hero');
     } finally {
       setIsSaving(false);
@@ -95,7 +119,7 @@ export default function HomeManagementPage() {
       const formData = new FormData();
       formData.append("image", selectedHeroFile);
 
-      const res = await adminFetch("http://localhost:5000/api/settings/upload-hero", {
+      const res = await adminFetch(`${adminApi(location)}/api/settings/upload-hero`, {
         method: "POST",
         body: formData,
       });
@@ -105,7 +129,7 @@ export default function HomeManagementPage() {
       setHeroImage(data.imageUrl);
       setSelectedHeroFile(null);
       showAlert('success', 'Gambar Hero berhasil diperbarui!');
-    } catch (err) {
+    } catch {
       showAlert('error', 'Gagal mengunggah gambar Hero');
     } finally {
       setIsSaving(false);
@@ -115,16 +139,16 @@ export default function HomeManagementPage() {
   const handleSaveOrder = async () => {
     setIsSaving(true);
     try {
-      const res = await adminFetch("http://localhost:5000/api/settings", {
+      const res = await adminFetch(`${adminApi(location)}/api/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          home_sections_order: JSON.stringify(sectionsOrder)
+          [sectionsOrderKey]: JSON.stringify(sectionsOrder)
         })
       });
       if (!res.ok) throw new Error();
       showAlert('success', 'Urutan beranda berhasil disimpan!');
-    } catch (err) {
+    } catch {
       showAlert('error', 'Gagal menyimpan urutan');
     } finally {
       setIsSaving(false);
@@ -153,6 +177,10 @@ export default function HomeManagementPage() {
     return <div className="flex h-64 items-center justify-center">Memuat data...</div>;
   }
 
+  const initialAttractions = initialSettings
+    ? parseAttractions(initialSettings[currentAttractionsKey], isPadang ? [] : defaultPainanAttractions)
+    : null;
+
   return (
     <div className="space-y-6 relative w-full">
       {/* Custom Toast Alert */}
@@ -169,12 +197,12 @@ export default function HomeManagementPage() {
       )}
 
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Pengaturan Beranda</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Pengaturan Beranda ({isPadang ? 'Padang' : 'Painan'})</h2>
         <p className="text-sm text-gray-500 mt-1">Kelola konten, gambar, dan tata letak halaman utama (Home).</p>
       </div>
 
       {/* Tabs */}
-      <HomeActionsSettings />
+      <HomeActionsSettings initialWhatsapp={whatsappNumber} initialReviewUrl={reviewUrl} />
       <div className="flex border-b border-gray-200">
         <button
           onClick={() => setActiveTab('hero')}
@@ -223,7 +251,7 @@ export default function HomeManagementPage() {
                     value={heroTitle}
                     onChange={(e) => setHeroTitle(e.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    placeholder="Hannah Hotel Syari'ah"
+                    placeholder={`Hannah Hotel Syari'ah ${isPadang ? 'Padang' : 'Painan'}`}
                   />
                 </div>
                 
@@ -256,9 +284,11 @@ export default function HomeManagementPage() {
               {heroImage && (
                 <div className="relative w-full h-64 rounded-xl overflow-hidden border border-gray-200 shadow-inner">
                   <Image 
-                    src={heroImage.startsWith('http') ? heroImage : `http://localhost:5000${heroImage}`} 
+                    src={resolveImageUrl(heroImage)} 
                     alt="Hero" 
                     fill 
+                    loading="eager"
+                    sizes="(max-width: 1024px) 100vw, 768px"
                     className="object-cover"
                   />
                   <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold text-primary">
@@ -368,7 +398,7 @@ export default function HomeManagementPage() {
           </div>
         )}
 
-        {activeTab === 'attractions' && <AttractionsManagement />}
+        {activeTab === 'attractions' && <AttractionsManagement initialItems={initialAttractions} />}
       </div>
     </div>
   );

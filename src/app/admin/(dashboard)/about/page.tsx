@@ -1,12 +1,25 @@
 "use client";
 
-import { adminFetch } from '@/lib/admin-api';
+import { usePathname } from 'next/navigation';
+import { adminApi, adminFetch, adminLocation } from '@/lib/admin-api';
 import { useState, useEffect } from "react";
-import { Plus, Trash2, X, Save, Edit3, GripVertical, Check } from "lucide-react";
-import * as LucideIcons from 'lucide-react';
+import { Plus, Trash2, X, Save, GripVertical, Check, Target, CheckSquare } from "lucide-react";
+
 import IconPicker from "@/components/IconPicker";
 
 export default function AboutUsManagementPage() {
+  const location = adminLocation(usePathname());
+  const api = adminApi(location);
+  const label = location === 'padang' ? 'Padang' : 'Painan';
+  const suffix = location === 'padang' ? '_padang' : '';
+
+  const historySubtitleKey = `history_subtitle${suffix}`;
+  const historyQuoteKey = `history_quote${suffix}`;
+  const historyContentKey = `history_content${suffix}`;
+  const visionSubtitleKey = `vision_subtitle${suffix}`;
+  const visionTextKey = `vision_text${suffix}`;
+  const missionsJsonKey = location === 'padang' ? 'missions_padang_json' : 'missions_json';
+
   const [activeTab, setActiveTab] = useState<'sejarah' | 'visi-misi'>('sejarah');
   
   const [historySubtitle, setHistorySubtitle] = useState("");
@@ -23,23 +36,38 @@ export default function AboutUsManagementPage() {
 
   useEffect(() => {
     fetchSettings();
-  }, []);
+  }, [api, location]);
 
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const res = await adminFetch("http://localhost:5000/api/settings");
+      const keys = [
+        historySubtitleKey,
+        historyQuoteKey,
+        historyContentKey,
+        visionSubtitleKey,
+        visionTextKey,
+        missionsJsonKey,
+        'history_subtitle',
+        'history_quote',
+        'history_content',
+        'vision_subtitle',
+        'vision_text',
+        'missions_json',
+      ].join(',');
+      const res = await adminFetch(`${api}/api/settings?keys=${keys}`);
       const data = await res.json();
       
-      if (data.history_subtitle) setHistorySubtitle(data.history_subtitle);
-      if (data.history_quote) setHistoryQuote(data.history_quote);
-      if (data.history_content) setHistoryContent(data.history_content);
-      if (data.vision_subtitle) setVisionSubtitle(data.vision_subtitle);
-      if (data.vision_text) setVisionText(data.vision_text);
-      if (data.missions_json) {
+      setHistorySubtitle(data[historySubtitleKey] ?? data.history_subtitle ?? "");
+      setHistoryQuote(data[historyQuoteKey] ?? data.history_quote ?? "");
+      setHistoryContent(data[historyContentKey] ?? data.history_content ?? "");
+      setVisionSubtitle(data[visionSubtitleKey] ?? data.vision_subtitle ?? "");
+      setVisionText(data[visionTextKey] ?? data.vision_text ?? "");
+      const rawMissions = data[missionsJsonKey] ?? data.missions_json;
+      if (rawMissions) {
         try {
-          setMissions(JSON.parse(data.missions_json));
-        } catch(e) {}
+          setMissions(JSON.parse(rawMissions));
+        } catch {}
       }
     } catch (err) {
       console.error(err);
@@ -58,12 +86,12 @@ export default function AboutUsManagementPage() {
     setIsSaving(true);
     try {
       const payload = {
-        history_subtitle: historySubtitle,
-        history_quote: historyQuote,
-        history_content: historyContent
+        [historySubtitleKey]: historySubtitle,
+        [historyQuoteKey]: historyQuote,
+        [historyContentKey]: historyContent
       };
       
-      const res = await adminFetch("http://localhost:5000/api/settings", {
+      const res = await adminFetch(`${api}/api/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -71,7 +99,7 @@ export default function AboutUsManagementPage() {
       
       if (!res.ok) throw new Error();
       showAlert('success', 'Sejarah berhasil disimpan!');
-    } catch (err) {
+    } catch {
       showAlert('error', 'Gagal menyimpan sejarah.');
     } finally {
       setIsSaving(false);
@@ -82,12 +110,12 @@ export default function AboutUsManagementPage() {
     setIsSaving(true);
     try {
       const payload = {
-        vision_subtitle: visionSubtitle,
-        vision_text: visionText,
-        missions_json: JSON.stringify(missions)
+        [visionSubtitleKey]: visionSubtitle,
+        [visionTextKey]: visionText,
+        [missionsJsonKey]: JSON.stringify(missions)
       };
       
-      const res = await adminFetch("http://localhost:5000/api/settings", {
+      const res = await adminFetch(`${api}/api/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -95,7 +123,7 @@ export default function AboutUsManagementPage() {
       
       if (!res.ok) throw new Error();
       showAlert('success', 'Visi & Misi berhasil disimpan!');
-    } catch (err) {
+    } catch {
       showAlert('error', 'Gagal menyimpan Visi & Misi.');
     } finally {
       setIsSaving(false);
@@ -129,8 +157,8 @@ export default function AboutUsManagementPage() {
       )}
 
       <div>
-        <h2 className="text-3xl font-bold text-gray-900">Manajemen Tentang Kami</h2>
-        <p className="text-base text-gray-500 mt-1">Kelola teks untuk halaman Sejarah dan Visi & Misi hotel.</p>
+        <h2 className="text-3xl font-bold text-gray-900">Manajemen Sejarah {label}</h2>
+        <p className="text-base text-gray-500 mt-1">Kelola teks untuk halaman Sejarah dan Visi &amp; Misi hotel cabang {label}.</p>
       </div>
 
       <div className="border-b border-gray-200">
@@ -157,7 +185,7 @@ export default function AboutUsManagementPage() {
               }
             `}
           >
-            Halaman Visi & Misi
+            Halaman Visi &amp; Misi
           </button>
         </nav>
       </div>
@@ -228,7 +256,7 @@ export default function AboutUsManagementPage() {
               <div className="rounded-xl border border-gray-200 bg-white p-6 md:p-8 shadow-sm space-y-4">
                 <div className="space-y-2">
                   <label className="block text-base font-semibold text-gray-700">Penjelasan Singkat (Subtitle)</label>
-                  <p className="text-sm text-gray-500">Tampil di bawah judul halaman utama Visi & Misi.</p>
+                  <p className="text-sm text-gray-500">Tampil di bawah judul halaman utama Visi &amp; Misi.</p>
                   <textarea 
                     rows={2}
                     value={visionSubtitle}
@@ -241,7 +269,7 @@ export default function AboutUsManagementPage() {
 
               <div className="rounded-xl border border-gray-200 bg-white p-6 md:p-8 shadow-sm space-y-4">
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2.5 bg-mint/10 text-mint rounded-lg"><LucideIcons.Target size={24} /></div>
+                  <div className="p-2.5 bg-mint/10 text-mint rounded-lg"><Target size={24} /></div>
                   <h3 className="text-xl font-bold text-gray-900">Visi Hotel</h3>
                 </div>
                 
@@ -257,7 +285,7 @@ export default function AboutUsManagementPage() {
               <div className="rounded-xl border border-gray-200 bg-white p-6 md:p-8 shadow-sm">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                   <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-orange/10 text-orange rounded-lg"><LucideIcons.CheckSquare size={24} /></div>
+                    <div className="p-2.5 bg-orange/10 text-orange rounded-lg"><CheckSquare size={24} /></div>
                     <h3 className="text-xl font-bold text-gray-900">Daftar Misi</h3>
                   </div>
                   <button 
